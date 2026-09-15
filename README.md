@@ -11,6 +11,27 @@ uv sync
 uv run yolo-media-sorter
 ```
 
+## Configuration and saved state
+
+`app/config.py` defines the Pydantic models and `PlatformDirs("YOLO-media-sorter", appauthor=False).user_config_path`. On Windows this is `%LOCALAPPDATA%\YOLO-media-sorter`.
+
+- `config.json` contains user defaults and explicitly saved API key overrides. Built-in defaults are used before a user config has been saved.
+- `state.json` stores scan and organize settings, selected labels, sorting, expanded preview rows, window geometry, and the active tab only when **Save config** is clicked. Changing controls, switching tabs, resizing, and closing the app do not save anything.
+- Startup precedence is **defaults < user config < saved state < explicitly supplied app arguments**. Omitted arguments have no defaults that overwrite restored values. Launch arguments are written to state only when **Save config** is clicked.
+
+**Reset config** clears the saved state and restores the user defaults from `config.json` (or built-in defaults when no user defaults have been saved). **Set default config** saves the current Scan values as user defaults and clears older state overrides. These buttons are in the Scan tab’s bottom controls. API key inputs are still saved separately with **Save settings**.
+
+For example:
+
+```powershell
+uv run yolo-media-sorter --source 'D:\Media' --model yolov8n-cls --move-confidence 0.7 --no-videos
+uv run yolo-media-sorter --help
+```
+
+`--selected-labels label-a label-b` overrides saved label selections; `--selected-labels` clears them for that launch. Scan results remain in the inference index; a new scan repopulates the preview using cached predictions. Saved label selections and row expansion are restored when those labels and files appear.
+
+The **Settings** tab shows the current config file path and the `ULTRALYTICS_API_KEY` and `HF_TOKEN` environment values. Optional API key overrides are saved to `config.json` only when **Save settings** is pressed, and apply to subsequent model downloads. An empty override uses the environment value. Environment values are never copied into either JSON file. `--ultralytics-api-key` and `--huggingface-api-key` can also supply explicit launch overrides.
+
 ## Workflow
 
 1. Select the media folder. Destination folders are derived automatically from the loaded modelâ€™s predicted labels inside this folder.

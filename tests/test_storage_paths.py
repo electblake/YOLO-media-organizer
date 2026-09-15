@@ -8,7 +8,7 @@ from zipfile import ZipFile
 import pytest
 
 from app import scanner
-from app.paths import CONFIG_DIR, dirs
+from app.config import CONFIG_DIR, dirs
 
 
 def test_model_storage_routes(tmp_path, monkeypatch):
@@ -96,7 +96,7 @@ def test_dependency_caches_use_config_root_on_startup():
 import app
 import json
 import tempfile
-from app.paths import CONFIG_DIR
+from app.config import CONFIG_DIR
 from huggingface_hub import constants
 from ultralytics.utils import USER_CONFIG_DIR
 from torch.hub import get_dir

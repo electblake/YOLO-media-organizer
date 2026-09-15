@@ -2,6 +2,7 @@ import tkinter as tk
 from concurrent.futures import Future
 from types import SimpleNamespace
 
+from app.config import Settings
 from app.main import MainView
 from app.scanner import MediaResult, ScanOptions
 
@@ -9,7 +10,7 @@ from app.scanner import MediaResult, ScanOptions
 def test_context_menu_selects_clicked_file_and_tracks_move(tmp_path, monkeypatch):
     root = tk.Tk()
     root.geometry("1100x760")
-    view = MainView(root)
+    view = MainView(root, Settings(tmp_path / "settings", {}))
     view.pack(fill="both", expand=True)
     view.options = ScanOptions(tmp_path)
     view.operation = "move"

@@ -19,7 +19,7 @@ from PIL import Image, ImageOps
 from ultralytics import YOLO
 from ultralytics.utils.checks import check_file
 
-from app.paths import CONFIG_DIR, HF_CACHE_DIR, MODELS_DIR
+from app.config import CONFIG_DIR, HF_CACHE_DIR, MODELS_DIR
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".wmv", ".mpeg", ".mpg", ".mov", ".m4v", ".mkv", ".webm"}

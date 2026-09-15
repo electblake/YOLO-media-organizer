@@ -9,6 +9,7 @@ from PIL import Image
 from ultralytics.engine.results import Results
 
 from app import scanner
+from app.config import Settings
 from app.main import MainView
 
 
@@ -35,7 +36,7 @@ def test_checked_labels_and_move_confidence_do_not_repeat_inference(tmp_path, mo
     ))
     root = tk.Tk()
     root.geometry("1100x760")
-    view = MainView(root)
+    view = MainView(root, Settings(tmp_path / "settings", {}))
     view.pack(fill="both", expand=True)
     view.data_dir = tmp_path / "data"
     view.source.set(str(source))
@@ -112,8 +113,8 @@ def test_checked_labels_and_move_confidence_do_not_repeat_inference(tmp_path, mo
     finish()
     assert len(calls) == 4
     assert all(kwargs["conf"] == 0.15 for kwargs in calls[2:])
-    assert not any(variable.get() for variable in view.label_vars.values())
-    view.label_checks["label-B"].invoke()
+    assert view.label_vars["label-B"].get()
+    assert not view.label_vars["label-A"].get()
     view.move_confidence.set(0.7)
     view.move_button.invoke()
     finish()

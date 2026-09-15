@@ -3,12 +3,7 @@
 import os
 import tempfile
 
-from platformdirs import PlatformDirs
-
-dirs = PlatformDirs("YOLO-media-sorter", appauthor=False)
-CONFIG_DIR = dirs.user_config_path
-MODELS_DIR = CONFIG_DIR / "models"
-HF_CACHE_DIR = MODELS_DIR / "huggingface"
+from app.config import CONFIG_DIR, HF_CACHE_DIR
 
 
 def configure_runtime():

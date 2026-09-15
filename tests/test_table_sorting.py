@@ -1,6 +1,7 @@
 import tkinter as tk
 from concurrent.futures import Future
 
+from app.config import Settings
 from app.main import MainView
 from app.scanner import MediaResult, ScanOptions
 
@@ -8,7 +9,7 @@ from app.scanner import MediaResult, ScanOptions
 def test_column_cycles_priority_numeric_matches_and_live_results(tmp_path):
     root = tk.Tk()
     root.geometry("1100x760")
-    view = MainView(root)
+    view = MainView(root, Settings(tmp_path / "settings", {}))
     view.pack(fill="both", expand=True)
     view.options = ScanOptions(tmp_path)
     view.move_confidence.set(0)
