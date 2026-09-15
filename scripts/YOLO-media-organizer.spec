@@ -26,7 +26,8 @@ version_info = VSVersionInfo(
 )
 a = Analysis(
     [str(root / "app/__main__.py")], pathex=[str(root)],
-    datas=[(str(root / "README.md"), "."), (str(root / "CHANGELOG.md"), "."), (str(root / "pyproject.toml"), ".")]
+    datas=[(str(root / "README.md"), "."), (str(root / "Models.md"), "."),
+           (str(root / "assets"), "assets"), (str(root / "CHANGELOG.md"), "."), (str(root / "pyproject.toml"), ".")]
           + copy_metadata("ultralytics"),
     binaries=[], hiddenimports=[], hookspath=[], hooksconfig={}, runtime_hooks=[],
     excludes=[], noarchive=False, optimize=0,

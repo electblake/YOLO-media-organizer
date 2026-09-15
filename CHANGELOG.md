@@ -5,6 +5,14 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-15
+
+### Changed
+
+- Renamed the application, command, settings directory, and Windows packages to YOLO Media Organizer.
+- Shortened the README and moved model details to Models.md.
+- Added YOLOmo artwork and a direct Windows installer link.
+
 ## [0.6.0] - 2026-09-15
 
 ### Added
@@ -52,7 +60,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Model presets from Hugging Face, GitHub, and Ultralytics Platform.
 - Repeatable PyInstaller and Inno Setup build scripts with an executable launch check.
 
-[Unreleased]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/electblake/YOLO-media-organizer/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/electblake/YOLO-media-organizer/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/electblake/YOLO-media-organizer/compare/v0.0.5...v0.5.1

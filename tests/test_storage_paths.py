@@ -105,4 +105,4 @@ print(json.dumps([str(CONFIG_DIR), str(constants.HF_HUB_CACHE), str(constants.HF
                   str(USER_CONFIG_DIR), get_dir(), get_configdir(), tempfile.gettempdir()]))
 """
     paths = json.loads(subprocess.check_output([sys.executable, "-c", script], text=True).splitlines()[-1])
-    assert all(Path(path).is_relative_to(Path(paths[0])) for path in paths[1:])
+    assert all(Path(path).resolve().is_relative_to(Path(paths[0]).resolve()) for path in paths[1:])
