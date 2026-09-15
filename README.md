@@ -105,7 +105,21 @@ Leave source files unchanged between preview and move. Keep the launch terminal 
 
 Local model files and exported model directories are copied into the managed model directory before loading; their originals are retained. Dependency cache paths are configured before the app imports the model libraries. Ultralytics run and dataset locations also point under this configuration directory.
 
-## Development
+## Windows release build
+
+Requires PowerShell 7, uv, and Inno Setup 6 installed at `%LOCALAPPDATA%\Programs\Inno Setup 6`.
+
+```powershell
+pwsh -NoProfile -File scripts/build.ps1
+.venv-build/Scripts/python.exe scripts/check-launch.py dist/YOLO-media-sorter-0.0.5-windows-amd64/YOLO-media-sorter-0.0.5-windows-amd64.exe build/launch.png
+pwsh -NoProfile -File scripts/build-setup.ps1
+```
+
+The build uses the locked dependencies in a separate `.venv-build` environment. Versioned artifacts are written to `dist/`: a standalone application folder, a portable ZIP, and a per-user Setup executable. Python is bundled; model weights download on first use into the app configuration directory. The Windows bundle uses the locked CPU build of PyTorch.
+
+After verifying the packaged app opens, publish `v0.0.5` as a GitHub **prerelease** and attach both the portable ZIP and Setup executable. Application version and artifact names come from `pyproject.toml`.
+
+## Development checks
 
 ```powershell
 uv run pytest

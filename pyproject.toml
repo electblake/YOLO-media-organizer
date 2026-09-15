@@ -1,6 +1,6 @@
 [project]
 name = "yolo-media-sorter"
-version = "0.1.0"
+version = "0.0.5"
 description = "Index images and video snapshots with YOLO and move media into label folders"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,6 +24,9 @@ build-backend = "setuptools.build_meta"
 packages = ["app"]
 
 [dependency-groups]
+build = [
+    "pyinstaller==6.22.3",
+]
 dev = ["pytest>=8", "ruff>=0.11"]
 
 [tool.pytest.ini_options]
