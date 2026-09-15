@@ -139,13 +139,13 @@ Requires PowerShell 7, uv, and Inno Setup 6 installed at `%LOCALAPPDATA%\Program
 
 ```powershell
 pwsh -NoProfile -File scripts/build.ps1
-.venv-build/Scripts/python.exe scripts/check-launch.py dist/YOLO-media-sorter-0.5.2-windows-amd64/YOLO-media-sorter-0.5.2-windows-amd64.exe build/launch.png
+.venv-build/Scripts/python.exe scripts/check-launch.py dist/YOLO-media-sorter-0.6.0-windows-amd64/YOLO-media-sorter-0.6.0-windows-amd64.exe build/launch.png
 pwsh -NoProfile -File scripts/build-setup.ps1
 ```
 
 The build uses the locked dependencies in a separate `.venv-build` environment. Versioned artifacts are written to `dist/`: a standalone application folder, a portable ZIP, and a per-user Setup executable. Python is bundled; model weights download on first use into the app configuration directory. The Windows bundle uses the locked CPU build of PyTorch.
 
-After verifying the packaged app opens, publish `v0.5.2` as a GitHub **prerelease** and attach both the portable ZIP and Setup executable. Application version and artifact names come from `pyproject.toml`.
+After verifying the packaged app opens, publish `v0.6.0` as a GitHub **prerelease** and attach both the portable ZIP and Setup executable. Application version and artifact names come from `pyproject.toml`.
 
 ## Development checks
 

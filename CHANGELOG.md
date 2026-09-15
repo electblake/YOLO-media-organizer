@@ -5,6 +5,14 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-15
+
+### Added
+
+- Model class browser with background loading, case-insensitive filtering, and sortable class IDs and labels.
+- Extras tab with per-user File Explorer context menu installation for folders, folder backgrounds, and drives.
+- Explorer launch support that opens Sort Media with the selected folder as the media source.
+
 ### Changed
 
 - Split configuration and results into resizable side-by-side panes, with scrollable scan settings and a resizable organize label area.
@@ -44,7 +52,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Model presets from Hugging Face, GitHub, and Ultralytics Platform.
 - Repeatable PyInstaller and Inno Setup build scripts with an executable launch check.
 
-[Unreleased]: https://github.com/electblake/YOLO-media-sorter/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/electblake/YOLO-media-sorter/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/electblake/YOLO-media-sorter/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/electblake/YOLO-media-sorter/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/electblake/YOLO-media-sorter/compare/v0.0.5...v0.5.1
 [0.0.5]: https://github.com/electblake/YOLO-media-sorter/releases/tag/v0.0.5

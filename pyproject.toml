@@ -1,6 +1,6 @@
 [project]
 name = "yolo-media-sorter"
-version = "0.5.2"
+version = "0.6.0"
 description = "Index images and video snapshots with YOLO and move media into label folders"
 readme = "README.md"
 requires-python = ">=3.12"
