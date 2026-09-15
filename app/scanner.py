@@ -32,7 +32,6 @@ MODEL_PRESETS = {
     "leeyunjai/yolo11-ko-face-emotion-cls": "hf://leeyunjai/yolo11-ko-face-emotion-cls/yolo11x-face-emotion.pt",
     "MnLgt/yolo-human-parse": "hf://MnLgt/yolo-human-parse/yolo-human-parse-epoch-125.pt",
     "yolo26n-cls": "yolo26n-cls.pt",
-    "likewendy/yolo26n-cls-porn": "hf://likewendy/yolo26n-cls-porn/weights/best.pt",
     "yolo11n-cls": "yolo11n-cls.pt",
     "yolov8n-cls": "yolov8n-cls.pt",
     "yolov8n-oiv7": "yolov8n-oiv7.pt",

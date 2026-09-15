@@ -72,7 +72,6 @@ Ultralytics Platform models accept `ul://owner/project/model` or a platform mode
 | --- | --- | --- |
 | rpi5/person-detection/yolov8nbest | [Ultralytics Platform](https://platform.ultralytics.com/rpi5/person-detection/yolov8nbest) | Model-provided detection labels |
 | leeyunjai/yolo11-ko-face-emotion-cls | [Model source](https://huggingface.co/leeyunjai/yolo11-ko-face-emotion-cls) | Model-provided labels from `yolo11x-face-emotion.pt` |
-| likewendy/yolo26n-cls-porn | [Model source](https://huggingface.co/likewendy/yolo26n-cls-porn) | Model-provided class probabilities from `weights/best.pt` |
 | NguyenToanLe/Age-Gender-Detection-YOLO / age, gender | [Model sources](https://github.com/NguyenToanLe/Age-Gender-Detection-YOLO/tree/main/models) | Separate `age.pt` and `gender.pt` checkpoints; labels read from each model |
 | DhanushSGowda/yolov8n-gender-classification | [Model source](https://huggingface.co/DhanushSGowda/yolov8n-gender-classification) | Whole-image class probabilities |
 | AdamCodd/yolo11n-face-age | [Model source](https://huggingface.co/AdamCodd/yolo11n-face-age) | Face boxes with age-range labels |
@@ -132,13 +131,13 @@ Requires PowerShell 7, uv, and Inno Setup 6 installed at `%LOCALAPPDATA%\Program
 
 ```powershell
 pwsh -NoProfile -File scripts/build.ps1
-.venv-build/Scripts/python.exe scripts/check-launch.py dist/YOLO-media-sorter-0.5.1-windows-amd64/YOLO-media-sorter-0.5.1-windows-amd64.exe build/launch.png
+.venv-build/Scripts/python.exe scripts/check-launch.py dist/YOLO-media-sorter-0.5.2-windows-amd64/YOLO-media-sorter-0.5.2-windows-amd64.exe build/launch.png
 pwsh -NoProfile -File scripts/build-setup.ps1
 ```
 
 The build uses the locked dependencies in a separate `.venv-build` environment. Versioned artifacts are written to `dist/`: a standalone application folder, a portable ZIP, and a per-user Setup executable. Python is bundled; model weights download on first use into the app configuration directory. The Windows bundle uses the locked CPU build of PyTorch.
 
-After verifying the packaged app opens, publish `v0.5.1` as a GitHub **prerelease** and attach both the portable ZIP and Setup executable. Application version and artifact names come from `pyproject.toml`.
+After verifying the packaged app opens, publish `v0.5.2` as a GitHub **prerelease** and attach both the portable ZIP and Setup executable. Application version and artifact names come from `pyproject.toml`.
 
 ## Development checks
 
