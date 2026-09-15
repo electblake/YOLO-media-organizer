@@ -23,4 +23,4 @@ uv run yolo-media-organizer
 
 This project is not affiliated with Ultralytics or the [YOLO models](https://docs.ultralytics.com/models). For more information, see the [Ultralytics documentation](https://docs.ultralytics.com) and [Ultralytics website](https://www.ultralytics.com).
 
-A copy of the [Ultralytics AGPL-3.0 license](LICENSE-ULTRALYTICS) is included for Ultralytics YOLO models. See [Ultralytics licensing](https://www.ultralytics.com/license) for details; third-party models may have their own license terms.
+YOLO is licensed under [AGPL-3.0 license](LICENSE) so we use that license here.
