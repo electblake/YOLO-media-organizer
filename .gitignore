@@ -1,0 +1,42 @@
+# Python environments and bytecode
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Build and installation output
+*.egg-info/
+*.egg
+/build/
+/dist/
+.eggs/
+pip-wheel-metadata/
+
+# Tool caches and coverage reports
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Model downloads and local scan artifacts
+*.pt
+*.onnx
+.yolo-sorter/
+/ui-verification.png
+
+# Local credentials and temporary files
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
