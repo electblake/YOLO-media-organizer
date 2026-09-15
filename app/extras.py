@@ -18,7 +18,7 @@ class ExtrasTab(ttk.Frame):
         self.install_file_explorer_button.grid(row=0, column=0, padx=10, pady=(0, 10), sticky="w")
         ttk.Label(
             install_frame,
-            text=('Adds "Open in YOLO Media Sorter" to File Explorer right-click menus for '
+            text=('Adds "Open in YOLO Media Organizer" to File Explorer right-click menus for '
                   "folders, folder backgrounds, and drives."),
             wraplength=720,
         ).grid(row=1, column=0, padx=10, pady=(0, 10), sticky="w")
@@ -26,7 +26,7 @@ class ExtrasTab(ttk.Frame):
     def install_in_file_explorer(self):
         install()
         messagebox.showinfo(
-            "File Explorer", "YOLO Media Sorter was installed in the File Explorer context menu.",
+            "File Explorer", "YOLO Media Organizer was installed in the File Explorer context menu.",
             parent=self,
         )
 
@@ -48,9 +48,9 @@ def install():
         (r"Directory\Background\shell", "%V"),
         (r"Drive\shell", "%1"),
     ):
-        menu_key = rf"Software\Classes\{context}\YOLO-media-sorter"
+        menu_key = rf"Software\Classes\{context}\YOLO-media-organizer"
         with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, menu_key, 0, winreg.KEY_SET_VALUE) as key:
-            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "Open in YOLO Media Sorter")
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "Open in YOLO Media Organizer")
             winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, f'"{executable}",0')
         with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, menu_key + r"\command", 0, winreg.KEY_SET_VALUE) as key:
             # A final dot keeps a drive's trailing backslash from escaping the closing quote.

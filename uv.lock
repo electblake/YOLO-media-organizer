@@ -1721,7 +1721,7 @@ wheels = [
 ]
 
 [[package]]
-name = "yolo-media-sorter"
+name = "yolo-media-organizer"
 version = "0.6.0"
 source = { editable = "." }
 dependencies = [

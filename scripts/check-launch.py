@@ -29,7 +29,7 @@ def find_window(handle, _):
     user32.GetWindowThreadProcessId(handle, ctypes.byref(pid))
     title = ctypes.create_unicode_buffer(512)
     user32.GetWindowTextW(handle, title, len(title))
-    if pid.value == process.pid and title.value == "YOLO Media Sorter":
+    if pid.value == process.pid and title.value == "YOLO Media Organizer":
         windows.append(handle)
     return True
 

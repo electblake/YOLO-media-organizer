@@ -7,7 +7,7 @@ from typing import Literal
 from platformdirs import PlatformDirs
 from pydantic import BaseModel, Field
 
-dirs = PlatformDirs("YOLO-media-sorter", appauthor=False)
+dirs = PlatformDirs("YOLO-media-organizer", appauthor=False)
 CONFIG_DIR = dirs.user_config_path
 MODELS_DIR = CONFIG_DIR / "models"
 HF_CACHE_DIR = MODELS_DIR / "huggingface"

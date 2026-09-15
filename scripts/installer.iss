@@ -1,13 +1,13 @@
-#define AppName "YOLO Media Sorter"
-#define Artifact "YOLO-media-sorter-" + AppVersion + "-windows-" + AppArchitecture
+#define AppName "YOLO Media Organizer"
+#define Artifact "YOLO-media-organizer-" + AppVersion + "-windows-" + AppArchitecture
 #define ExeName Artifact + ".exe"
 
 [Setup]
-AppId=electblake.YOLO-media-sorter
+AppId=electblake.YOLO-media-organizer
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher=electblake
-DefaultDirName={localappdata}\Programs\YOLO-media-sorter
+DefaultDirName={localappdata}\Programs\YOLO-media-organizer
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest

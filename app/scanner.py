@@ -130,7 +130,7 @@ def discover(options: ScanOptions, label_folders=()):
             if path.is_symlink():
                 continue
             if path.is_dir():
-                if options.recursive and path.name != ".yolo-sorter" and path not in label_folders:
+                if options.recursive and path.name != ".yolo-organizer" and path not in label_folders:
                     yield from visit(path)
             elif path.suffix.lower() in extensions:
                 yield path

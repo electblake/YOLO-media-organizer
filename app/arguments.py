@@ -4,7 +4,7 @@ import argparse
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(prog="yolo-media-sorter", argument_default=argparse.SUPPRESS)
+    parser = argparse.ArgumentParser(prog="yolo-media-organizer", argument_default=argparse.SUPPRESS)
     for name in ("source", "model", "crop-model", "device", "window-geometry", "ultralytics-api-key", "huggingface-api-key"):
         parser.add_argument(f"--{name}")
     for name in ("scan-confidence", "move-confidence", "frame-percentage"):

@@ -1,4 +1,4 @@
-"""YOLO Media Sorter."""
+"""YOLO Media Organizer."""
 
 from app.paths import configure_runtime
 

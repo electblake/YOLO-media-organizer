@@ -21,9 +21,9 @@ def test_explorer_commands_preserve_folder_and_drive_paths(monkeypatch, frozen):
     assert len(create_key.call_args_list) == 6
     keys = [call.args[1] for call in create_key.call_args_list[::2]]
     assert keys == [
-        r"Software\Classes\Directory\shell\YOLO-media-sorter",
-        r"Software\Classes\Directory\Background\shell\YOLO-media-sorter",
-        r"Software\Classes\Drive\shell\YOLO-media-sorter",
+        r"Software\Classes\Directory\shell\YOLO-media-organizer",
+        r"Software\Classes\Directory\Background\shell\YOLO-media-organizer",
+        r"Software\Classes\Drive\shell\YOLO-media-organizer",
     ]
     parse_command = ctypes.windll.shell32.CommandLineToArgvW
     parse_command.argtypes = [ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_int)]

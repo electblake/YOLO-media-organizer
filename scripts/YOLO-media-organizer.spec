@@ -10,17 +10,17 @@ from PyInstaller.utils.win32.versioninfo import (
 root = Path(SPECPATH).parent
 project = tomllib.loads((root / "pyproject.toml").read_text())["project"]
 version = project["version"]
-artifact = f"YOLO-media-sorter-{version}-windows-{platform.machine().lower()}"
+artifact = f"YOLO-media-organizer-{version}-windows-{platform.machine().lower()}"
 version_tuple = tuple(int(part) for part in version.split(".")) + (0,)
 version_info = VSVersionInfo(
     ffi=FixedFileInfo(filevers=version_tuple, prodvers=version_tuple, mask=0x3f, flags=0,
                       OS=0x40004, fileType=1, subtype=0, date=(0, 0)),
     kids=[StringFileInfo([StringTable("040904B0", [
         StringStruct("CompanyName", "electblake"),
-        StringStruct("FileDescription", "YOLO Media Sorter"),
+        StringStruct("FileDescription", "YOLO Media Organizer"),
         StringStruct("FileVersion", version),
         StringStruct("ProductVersion", version),
-        StringStruct("ProductName", "YOLO Media Sorter"),
+        StringStruct("ProductName", "YOLO Media Organizer"),
         StringStruct("OriginalFilename", artifact + ".exe"),
     ])]), VarFileInfo([VarStruct("Translation", [1033, 1200])])],
 )

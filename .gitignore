@@ -25,7 +25,7 @@ coverage.xml
 # Model downloads and local scan artifacts
 *.pt
 *.onnx
-.yolo-sorter/
+.yolo-organizer/
 /ui-verification.png
 
 # Local credentials and temporary files

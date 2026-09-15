@@ -55,7 +55,7 @@ class MainView(ttk.Frame):
 
         heading = ttk.Frame(self)
         heading.grid(row=0, column=0, sticky="ew", pady=(0, 12))
-        ttk.Label(heading, text="YOLO Media Sorter", font=("Segoe UI", 20, "bold")).pack(anchor="w")
+        ttk.Label(heading, text="YOLO Media Organizer", font=("Segoe UI", 20, "bold")).pack(anchor="w")
 
         self.main_panes = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
         self.main_panes.grid(row=1, column=0, sticky="nsew")
@@ -618,7 +618,7 @@ def main(argv=None):
     settings = Settings(CONFIG_DIR, arguments)
     settings.apply_api_keys()
     root = tk.Tk()
-    root.title("YOLO Media Sorter")
+    root.title("YOLO Media Organizer")
     root.geometry(settings.values.window_geometry)
     root.minsize(920, 620)
     root.columnconfigure(0, weight=1)

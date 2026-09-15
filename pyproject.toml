@@ -1,5 +1,5 @@
 [project]
-name = "yolo-media-sorter"
+name = "yolo-media-organizer"
 version = "0.6.0"
 description = "Index images and video snapshots with YOLO and move media into label folders"
 readme = "README.md"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-yolo-media-sorter = "app.main:main"
+yolo-media-organizer = "app.main:main"
 
 [build-system]
 requires = ["setuptools>=77"]

@@ -8,7 +8,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
 version = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
-bundle = root / "dist" / f"YOLO-media-sorter-{version}-windows-{platform.machine().lower()}"
+bundle = root / "dist" / f"YOLO-media-organizer-{version}-windows-{platform.machine().lower()}"
 for distribution in importlib.metadata.distributions():
     for file in distribution.files:
         if file.name.lower().startswith(("license", "copying", "notice")):
