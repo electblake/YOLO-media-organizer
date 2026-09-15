@@ -31,7 +31,7 @@ class AppState(BaseModel):
     main_divider: int = 460
     scan_divider: int = 350
     expanded_rows: list[str] = Field(default_factory=list)
-    active_tab: Literal["Scan", "Settings", "Extras"] = "Scan"
+    active_tab: Literal["Scan", "Models", "Settings", "Extras"] = "Scan"
 
     def save(self, path: Path):
         path.write_text(self.model_dump_json(indent=2, exclude_unset=True), encoding="utf-8")

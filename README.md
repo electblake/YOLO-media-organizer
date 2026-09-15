@@ -16,10 +16,10 @@ uv run yolo-media-sorter
 `app/config.py` defines the Pydantic models and `PlatformDirs("YOLO-media-sorter", appauthor=False).user_config_path`. On Windows this is `%LOCALAPPDATA%\YOLO-media-sorter`.
 
 - `config.json` contains user defaults and explicitly saved API key overrides. Built-in defaults are used before a user config has been saved.
-- `state.json` stores scan and organize settings, selected labels, sorting, expanded preview rows, window geometry, and the active tab only when **Save config** is clicked. Changing controls, switching tabs, resizing, and closing the app do not save anything.
+- `state.json` stores scan and organize settings, selected labels, sorting, expanded preview rows, window geometry, both divider positions, and the active tab only when **Save config** is clicked. Changing controls, switching tabs, resizing, and closing the app do not save anything.
 - Startup precedence is **defaults < user config < saved state < explicitly supplied app arguments**. Omitted arguments have no defaults that overwrite restored values. Launch arguments are written to state only when **Save config** is clicked.
 
-Like Spectra's **Reset Default**, **Reset config** restores built-in defaults in the current UI without changing either saved file. Click **Save config** to persist the reset; closing without saving retains the previously saved configuration. API key settings are unaffected. **Set default config** saves the current Scan values as user defaults and clears older state overrides. These buttons are in the Scan tab’s bottom controls. API key inputs are still saved separately with **Save settings**.
+Like Spectra's **Reset Default**, **Reset config** restores built-in defaults in the current UI without changing either saved file. Click **Save config** to persist the reset; closing without saving retains the previously saved configuration. API key settings are unaffected. **Set default config** saves the current Sort Media values as user defaults and clears older state overrides. These buttons are in the Scan tab’s bottom controls. API key inputs are still saved separately with **Save settings**.
 
 For example:
 
@@ -32,18 +32,24 @@ uv run yolo-media-sorter --help
 
 The **Settings** tab shows the current config file path and the `ULTRALYTICS_API_KEY` and `HF_TOKEN` environment values. Optional API key overrides are saved to `config.json` only when **Save settings** is pressed, and apply to subsequent model downloads. An empty override uses the environment value. Environment values are never copied into either JSON file. `--ultralytics-api-key` and `--huggingface-api-key` can also supply explicit launch overrides.
 
+## Layout
+
+Drag the main divider to resize the configuration tabs on the left and results on the right. In Sort Media, drag the horizontal divider to give more space to scan settings or the organize label list. Scan settings scroll vertically when they exceed the available height. Results, scan/move/stop actions, configuration buttons, and progress remain visible on every tab.
+
+**Save config** saves both divider positions. **Reset config** restores their built-in positions without saving; **Set default config** includes them in your user defaults.
+
 ## Workflow
 
 1. Select the media folder. Destination folders are derived automatically from the loaded model’s predicted labels inside this folder.
-2. Choose a model in **Classification model**, type any compatible Ultralytics model reference, or browse for a local model file. The listed models are presets, not restrictions on classification categories. `hf://owner/repository/filename` downloads a specific Hugging Face weight file.
+2. Choose a model in **Models > YOLO Classify & Detect > model**, type any compatible Ultralytics model reference, or browse for a local model file. The listed models are presets, not restrictions on classification categories. `hf://owner/repository/filename` downloads a specific Hugging Face weight file.
 3. Set **Scan confidence** (model input, default 0.25) and the video frame position (50% by default). Subfolders and videos are included by default.
-4. Click **Scan & preview**. File rows start collapsed. Expand a row to see every returned prediction, or use **Expand all** and **Collapse all** above the table. Each prediction retains its model label and raw output confidence, including repeated predictions.
+4. Click **Preview sorting**. File rows start collapsed. Expand a row to see every returned prediction, or use **Expand all** and **Collapse all** above the table. Each prediction retains its model label and raw output confidence, including repeated predictions.
 5. In **Organize configuration**, check labels to move and set **Move confidence**, **Min. predictions**, and **Max. predictions**. Labels start unchecked. Minimum defaults to 1 and cannot be 0; maximum defaults to -1, meaning unlimited.
-6. Click **Move classified media** to move those files. Scanning alone never moves media.
+6. Click **Sort media** to move those files. Scanning alone never moves media.
 
 Right-click a preview row for **Open file** or **Open path** (the containing folder). These actions track the current file location after a move.
 
-Use **Extras > Install > Install in File Explorer** to add **Open in YOLO Media Sorter** to the current Windows user's right-click menus for folders, folder backgrounds, and drives. The menu opens the Scan tab with that folder selected as the media source.
+Use **Extras > Install > Install in File Explorer** to add **Open in YOLO Media Sorter** to the current Windows user's right-click menus for folders, folder backgrounds, and drives. The menu opens the Sort Media tab with that folder selected as the media source.
 
 **Prediction count**, immediately after **Predicted label**, shows total returned predictions on each file row and the count for that label on each match row. These preview counts retain repeated predictions and sort numerically. Organize filters do not hide raw scan predictions or change these counts. They do not imply a count of people or objects.
 
@@ -66,7 +72,7 @@ Click a preview column heading to cycle ascending, descending, then off. Multipl
 
 The app calls `YOLO(...).predict(...)` and uses the standard Ultralytics preprocessing and results. It does not implement custom image resizing, feature extraction, embeddings, similarity, clustering, comparisons, or duplicate detection.
 
-Classification and detection models share the **YOLO model** dropdown in **Scan with YOLO Model**. Each detection contributes its model-provided label and confidence to the same preview and organize workflow; box coordinates are discarded. Repeated labels remain separate predictions and count separately. The selected model and scan settings are part of the cache key.
+Classification and detection models share the **model** dropdown in **Models > YOLO Classify & Detect**. Each detection contributes its model-provided label and confidence to the same preview and organize workflow; box coordinates are discarded. Repeated labels remain separate predictions and count separately. The selected model and scan settings are part of the cache key.
 
 Ultralytics Platform models accept `ul://owner/project/model` or a platform model-page URL in the model field. Downloads use the native Ultralytics loader and are stored under the app's `models/platform` directory. Set `ULTRALYTICS_API_KEY` using a key from [Platform settings](https://platform.ultralytics.com/settings) for API downloads. Downloaded `.pt` files can also be selected with Browse.
 

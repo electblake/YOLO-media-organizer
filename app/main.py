@@ -14,7 +14,7 @@ from app.arguments import build_parser
 from app.config import CONFIG_DIR, AppState, Settings
 from app.extras import ExtrasTab
 from app.organizer import move_media, plan_moves
-from app.scanner import MODEL_PRESETS, ScanOptions, scan
+from app.scanner import MODEL_PRESETS, ScanOptions, load_model, scan
 
 
 class MainView(ttk.Frame):
@@ -60,10 +60,11 @@ class MainView(ttk.Frame):
         self.main_panes = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
         self.main_panes.grid(row=1, column=0, sticky="nsew")
         self.tabs = ttk.Notebook(self.main_panes)
-        self.main_panes.add(self.tabs, weight=1)
+        self.main_panes.add(self.tabs, weight=0)
         self.scan_tab = ttk.Frame(self.tabs)
         self.scan_tab.columnconfigure(0, weight=1)
         self.scan_tab.rowconfigure(0, weight=1)
+        self.scan_divider = values.scan_divider
         self.scan_panes = ttk.Panedwindow(self.scan_tab, orient=tk.VERTICAL)
         self.scan_panes.grid(row=0, column=0, sticky="nsew")
         controls_pane = ttk.Frame(self.scan_panes)
@@ -75,22 +76,29 @@ class MainView(ttk.Frame):
         self.main_scrollbar = ttk.Scrollbar(controls_pane, orient="vertical", command=self.main_canvas.yview)
         self.main_scrollbar.grid(row=0, column=1, sticky="ns")
         self.main_canvas.configure(yscrollcommand=self.main_scrollbar.set)
+        self.models_tab = ttk.Frame(self.tabs, padding=12)
+        self.models_tab.columnconfigure(0, weight=1)
+        self.models_tab.rowconfigure(2, weight=1)
         self.settings_tab = ttk.Frame(self.tabs, padding=12)
         self.extras_tab = ExtrasTab(self.tabs)
-        self.tabs.add(self.scan_tab, text="Scan")
+        self.tabs.add(self.scan_tab, text="Sort Media")
+        self.tabs.add(self.models_tab, text="Models")
         self.tabs.add(self.settings_tab, text="Settings")
         self.tabs.add(self.extras_tab, text="Extras")
-        self.tabs.select({"Scan": self.scan_tab, "Settings": self.settings_tab, "Extras": self.extras_tab}[values.active_tab])
+        self.tabs.select({"Scan": self.scan_tab, "Models": self.models_tab, "Settings": self.settings_tab, "Extras": self.extras_tab}[values.active_tab])
         self.settings_tab.columnconfigure(0, weight=1)
         ttk.Label(self.settings_tab, text="User config path").grid(row=0, column=0, sticky="w")
         self.config_path_var = tk.StringVar(self, value=str(settings.config_path))
         ttk.Entry(self.settings_tab, textvariable=self.config_path_var, state="readonly").grid(row=1, column=0, sticky="ew", pady=(4, 16))
+        ttk.Button(
+            self.settings_tab, text="open config path", command=lambda: os.startfile(settings.config_path.parent),
+        ).grid(row=2, column=0, sticky="w", pady=(0, 16))
         self.ultralytics_api_key = tk.StringVar(self, value=values.ultralytics_api_key)
         self.huggingface_api_key = tk.StringVar(self, value=values.huggingface_api_key)
         self.environment_key_vars = {}
         for row, environment, title, variable in [
-            (2, "ULTRALYTICS_API_KEY", "Ultralytics API key override (optional)", self.ultralytics_api_key),
-            (6, "HF_TOKEN", "Hugging Face API key override (optional)", self.huggingface_api_key),
+            (3, "ULTRALYTICS_API_KEY", "Ultralytics API key override (optional)", self.ultralytics_api_key),
+            (7, "HF_TOKEN", "Hugging Face API key override (optional)", self.huggingface_api_key),
         ]:
             ttk.Label(self.settings_tab, text=environment + " (environment)").grid(row=row, column=0, sticky="w")
             self.environment_key_vars[environment] = tk.StringVar(self, value=settings.environment_keys[environment])
@@ -99,11 +107,11 @@ class MainView(ttk.Frame):
             )
             ttk.Label(self.settings_tab, text=title).grid(row=row + 2, column=0, sticky="w")
             ttk.Entry(self.settings_tab, textvariable=variable).grid(row=row + 3, column=0, sticky="ew", pady=(4, 16))
-        self.settings_tab.rowconfigure(10, weight=1)
+        self.settings_tab.rowconfigure(11, weight=1)
         self.save_settings_button = ttk.Button(self.settings_tab, text="Save settings", command=self.save_settings)
-        self.save_settings_button.grid(row=11, column=0, sticky="w")
+        self.save_settings_button.grid(row=12, column=0, sticky="w")
 
-        form = ttk.LabelFrame(self.main_canvas, text="Scan with YOLO Model", padding=12)
+        form = ttk.Frame(self.main_canvas, padding=12)
         self.main_frame = form
         self.main_canvas_window = self.main_canvas.create_window(0, 0, window=form, anchor="nw")
         form.bind("<Configure>", self.configure_main_scroll)
@@ -111,48 +119,78 @@ class MainView(ttk.Frame):
         form.columnconfigure(1, weight=1)
         for row, (title, variable, folder) in enumerate([
             ("Media folder", self.source, True),
-            ("YOLO model", self.model, False),
             ("Crop detector (optional)", self.crop_model, False),
         ]):
             ttk.Label(form, text=title).grid(row=row, column=0, sticky="w", pady=4)
-            if variable is self.model:
-                entry = ttk.Combobox(form, textvariable=variable, values=tuple(MODEL_PRESETS), width=20)
-            else:
-                entry = ttk.Entry(form, textvariable=variable, width=20)
+            entry = ttk.Entry(form, textvariable=variable, width=20)
             entry.grid(row=row, column=1, sticky="ew", padx=10, pady=4)
             button = ttk.Button(form, text="Browse…", command=lambda v=variable, f=folder: self.browse(v, f))
             button.grid(row=row, column=2)
             self.inputs.extend([entry, button])
         self.inputs[0].focus_set()
+
+        model_section = ttk.LabelFrame(self.models_tab, text="YOLO Classify & Detect", padding=12)
+        model_section.grid(row=0, column=0, sticky="ew")
+        model_section.columnconfigure(1, weight=1)
+        ttk.Label(model_section, text="model").grid(row=0, column=0, sticky="w", pady=4)
+        model_entry = ttk.Combobox(model_section, textvariable=self.model, values=tuple(MODEL_PRESETS), width=20)
+        model_entry.grid(row=0, column=1, sticky="ew", padx=10, pady=4)
+        model_browse = ttk.Button(model_section, text="Browse…", command=lambda: self.browse(self.model, False))
+        model_browse.grid(row=0, column=2)
+        self.inputs.extend([model_entry, model_browse])
+
+        ttk.Label(model_section, text="conf").grid(row=1, column=0, sticky="w")
+        scan_threshold = ttk.Spinbox(
+            model_section, from_=0, to=1, increment=0.05, textvariable=self.scan_confidence, width=6, state="readonly",
+        )
+        scan_threshold.grid(row=1, column=1, sticky="w", padx=10, pady=4)
+
+        self.load_classes_button = ttk.Button(model_section, text="load classes", command=self.load_classes)
+        self.load_classes_button.grid(row=2, column=0, columnspan=3, sticky="w", pady=(8, 0))
+        self.inputs.append(self.load_classes_button)
+        class_search = ttk.Frame(self.models_tab)
+        class_search.grid(row=1, column=0, sticky="ew", pady=8)
+        class_search.columnconfigure(1, weight=1)
+        ttk.Label(class_search, text="Filter labels").grid(row=0, column=0, padx=(0, 8))
+        self.class_filter = tk.StringVar(self)
+        ttk.Entry(class_search, textvariable=self.class_filter).grid(row=0, column=1, sticky="ew")
+        class_table = ttk.Frame(self.models_tab)
+        class_table.grid(row=2, column=0, sticky="nsew")
+        class_table.columnconfigure(0, weight=1)
+        class_table.rowconfigure(0, weight=1)
+        self.class_tree = ttk.Treeview(class_table, columns=("id", "label"), show="headings")
+        for name, width in (("id", 60), ("label", 260)):
+            self.class_tree.heading(name, text=name, anchor="w", command=lambda column=name: self.toggle_class_sort(column))
+            self.class_tree.column(name, width=width, minwidth=50, stretch=name == "label")
+        self.class_tree.grid(row=0, column=0, sticky="nsew")
+        class_scroll = ttk.Scrollbar(class_table, orient="vertical", command=self.class_tree.yview)
+        class_scroll.grid(row=0, column=1, sticky="ns")
+        class_horizontal = ttk.Scrollbar(class_table, orient="horizontal", command=self.class_tree.xview)
+        class_horizontal.grid(row=1, column=0, sticky="ew")
+        self.class_tree.configure(yscrollcommand=class_scroll.set, xscrollcommand=class_horizontal.set)
+        self.model_classes = {}
+        self.class_sort_columns = {}
+        self.class_filter.trace_add("write", self.refresh_classes)
+        self.model.trace_add("write", self.clear_classes)
+
         controls = ttk.Frame(form)
         controls.grid(row=5, column=0, columnspan=3, sticky="ew", pady=6)
-        ttk.Label(controls, text="Scan confidence").grid(row=0, column=0, sticky="w")
-        scan_threshold = ttk.Spinbox(
-            controls, from_=0, to=1, increment=0.05, textvariable=self.scan_confidence, width=6, state="readonly",
-        )
-        scan_threshold.grid(row=0, column=1, sticky="w", padx=8, pady=4)
-        ttk.Label(controls, text="Video position %").grid(row=1, column=0, sticky="w")
+        ttk.Label(controls, text="Video position %").grid(row=0, column=0, sticky="w")
         frame = ttk.Spinbox(controls, from_=0, to=100, increment=1, textvariable=self.frame_percentage, width=6, state="readonly")
-        frame.grid(row=1, column=1, sticky="w", padx=8, pady=4)
-        ttk.Label(controls, text="Device (blank = YOLO default)").grid(row=2, column=0, sticky="w")
-        device = ttk.Entry(controls, textvariable=self.device, width=9)
-        device.grid(row=2, column=1, sticky="w", padx=8, pady=4)
-        self.inputs.extend([scan_threshold, frame, device])
+        frame.grid(row=0, column=1, sticky="w", padx=8, pady=4)
+        self.inputs.extend([scan_threshold, frame])
         toggles = ttk.Frame(form)
         toggles.grid(row=6, column=0, columnspan=3, sticky="w")
         for title, variable in [("Include subfolders", self.recursive), ("Include videos", self.videos)]:
             toggle = ttk.Checkbutton(toggles, text=title, variable=variable)
             toggle.pack(side="left", padx=(0, 18))
             self.inputs.append(toggle)
-        ttk.Label(form, text="Scan confidence is model input. Changing it requires a new scan.", wraplength=340).grid(
-            row=7, column=0, columnspan=3, sticky="w", pady=(8, 0)
-        )
 
         actions = ttk.Frame(self)
         actions.grid(row=2, column=0, sticky="ew", pady=(12, 0))
-        self.scan_button = ttk.Button(actions, text="Scan & preview", command=self.start_scan)
+        self.scan_button = ttk.Button(actions, text="Preview sorting", command=self.start_scan)
         self.scan_button.pack(side="left")
-        self.move_button = ttk.Button(actions, text="Move classified media", command=self.start_move, state="disabled")
+        self.move_button = ttk.Button(actions, text="Sort media", command=self.start_move, state="disabled")
         self.move_button.pack(side="left", padx=8)
         self.stop_button = ttk.Button(actions, text="Stop after current file", command=self.stop.set, state="disabled")
         self.stop_button.pack(side="left")
@@ -166,7 +204,7 @@ class MainView(ttk.Frame):
         self.default_config_button.pack(side="left", padx=4)
         ttk.Button(actions, text="Open media folder", command=lambda: os.startfile(self.source.get())).pack(side="right")
 
-        label_panel = ttk.LabelFrame(self.scan_panes, text="organize", padding=8)
+        label_panel = ttk.LabelFrame(self.scan_panes, text="Organize Files", padding=8)
         self.scan_panes.add(label_panel, weight=1)
         label_panel.rowconfigure(2, weight=1)
         label_panel.columnconfigure(0, weight=1)
@@ -244,6 +282,7 @@ class MainView(ttk.Frame):
         self.update_sort_headings()
         self.main_panes.bind("<Map>", self.restore_main_divider)
         self.scan_panes.bind("<Map>", self.restore_scan_divider)
+        self.scan_panes.bind("<Unmap>", self.remember_scan_divider)
 
     def restore_main_divider(self, event):
         self.main_panes.sashpos(0, self.settings.values.main_divider)
@@ -252,6 +291,9 @@ class MainView(ttk.Frame):
     def restore_scan_divider(self, event):
         self.scan_panes.sashpos(0, self.settings.values.scan_divider)
         self.scan_panes.unbind("<Map>")
+
+    def remember_scan_divider(self, _event=None):
+        self.scan_divider = self.scan_panes.sashpos(0)
 
     def configure_main_scroll(self, _event=None):
         self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
@@ -265,6 +307,8 @@ class MainView(ttk.Frame):
         self.after_idle(self.configure_main_scroll)
 
     def current_state(self):
+        if self.scan_panes.winfo_ismapped():
+            self.remember_scan_divider()
         values = {name: getattr(self, name).get() for name in (
             "source", "model", "crop_model", "scan_confidence", "move_confidence", "min_predictions",
             "max_predictions", "frame_percentage", "device", "recursive", "videos",
@@ -275,8 +319,8 @@ class MainView(ttk.Frame):
             expanded_rows=[row for row in self.tree.get_children() if self.tree.item(row, "open")],
             window_geometry=self.winfo_toplevel().geometry(),
             main_divider=self.main_panes.sashpos(0),
-            scan_divider=self.scan_panes.sashpos(0),
-            active_tab=self.tabs.tab(self.tabs.select(), "text"),
+            scan_divider=self.scan_divider,
+            active_tab=("Scan", "Models", "Settings", "Extras")[self.tabs.index(self.tabs.select())],
         )
 
     def save_config(self):
@@ -296,9 +340,11 @@ class MainView(ttk.Frame):
         for row in self.tree.get_children():
             self.tree.item(row, open=row in values.expanded_rows)
         self.winfo_toplevel().geometry(values.window_geometry)
+        self.tabs.select({"Scan": self.scan_tab, "Models": self.models_tab, "Settings": self.settings_tab, "Extras": self.extras_tab}[values.active_tab])
+        self.update()
         self.main_panes.sashpos(0, values.main_divider)
         self.scan_panes.sashpos(0, values.scan_divider)
-        self.tabs.select({"Scan": self.scan_tab, "Settings": self.settings_tab, "Extras": self.extras_tab}[values.active_tab])
+        self.scan_divider = values.scan_divider
         self.refresh_results()
         self.status.set("Configuration reset to built-in defaults. Click Save config to keep these values.")
 
@@ -370,7 +416,7 @@ class MainView(ttk.Frame):
                 ))
         self.sort_table()
         self.tree.selection_set([row for row in selection if self.tree.exists(row)])
-        self.move_button.state(["!disabled"] if self.results and not (self.busy and self.operation == "scan") else ["disabled"])
+        self.move_button.state(["!disabled"] if self.results and not (self.busy and self.operation in {"scan", "classes"}) else ["disabled"])
 
     def filter_labels(self, *_):
         query = self.label_filter.get().casefold()
@@ -379,6 +425,53 @@ class MainView(ttk.Frame):
         matches = [label for label in sorted(self.label_checks) if query in label.casefold()]
         for position, label in enumerate(matches):
             self.label_checks[label].grid(row=position, column=0, sticky="ew", pady=2)
+
+    def clear_classes(self, *_):
+        self.model_classes = {}
+        self.refresh_classes()
+
+    def load_classes(self):
+        reference = MODEL_PRESETS[self.model.get()] if self.model.get() in MODEL_PRESETS else self.model.get()
+        self.clear_classes()
+        self.classes_model = self.model.get()
+        self.operation = "classes"
+        self.set_busy(True)
+        self.stop_button.state(["disabled"])
+        self.classes_future = self.executor.submit(lambda: load_model(reference).names)
+        self.after(75, self.poll_classes)
+
+    def poll_classes(self):
+        if not self.classes_future.done():
+            self.after(75, self.poll_classes)
+            return
+        self.set_busy(False)
+        classes = self.classes_future.result()
+        if self.model.get() == self.classes_model:
+            self.model_classes = classes
+        self.refresh_classes()
+
+    def refresh_classes(self, *_):
+        query = self.class_filter.get().casefold()
+        rows = [(index, label) for index, label in self.model_classes.items() if query in label.casefold()]
+        for column, descending in reversed(self.class_sort_columns.items()):
+            rows.sort(key=lambda row, column=column: row[0] if column == "id" else row[1].casefold(), reverse=descending)
+        self.class_tree.delete(*self.class_tree.get_children())
+        for index, label in rows:
+            self.class_tree.insert("", "end", iid=str(index), values=(index, label))
+
+    def toggle_class_sort(self, column):
+        if column not in self.class_sort_columns:
+            self.class_sort_columns[column] = False
+        elif not self.class_sort_columns[column]:
+            self.class_sort_columns[column] = True
+        else:
+            del self.class_sort_columns[column]
+        for name in ("id", "label"):
+            self.class_tree.heading(name, text=name)
+        for priority, (name, descending) in enumerate(self.class_sort_columns.items(), 1):
+            arrow = "▼" if descending else "▲"
+            self.class_tree.heading(name, text=f"{name} {arrow}{priority}")
+        self.refresh_classes()
 
     def toggle_sort(self, column):
         if column not in self.sort_columns:
@@ -442,7 +535,7 @@ class MainView(ttk.Frame):
         for widget in self.inputs + [self.scan_button]:
             widget.state(["disabled"] if busy else ["!disabled"])
         self.stop_button.state(["!disabled"] if busy else ["disabled"])
-        self.move_button.state(["!disabled"] if self.results and not (busy and self.operation == "scan") else ["disabled"])
+        self.move_button.state(["!disabled"] if self.results and not (busy and self.operation in {"scan", "classes"}) else ["disabled"])
 
     def start_scan(self):
         self.options = ScanOptions(
@@ -510,7 +603,7 @@ class MainView(ttk.Frame):
         result = self.future.result()
         self.refresh_results()
         if self.operation == "scan":
-            self.status.set(f"{'Stopped' if self.stop.is_set() else 'Scan complete'} · {len(self.results)} media")
+            self.status.set(f"{'Stopped' if self.stop.is_set() else 'Preview ready'} · {len(self.results)} media")
         else:
             self.status.set(f"{'Stopped' if self.stop.is_set() else 'Complete'} · {result} files moved · Journal: {self.data_dir / 'moves'}")
 

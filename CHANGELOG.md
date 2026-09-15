@@ -5,6 +5,12 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+### Changed
+
+- Split configuration and results into resizable side-by-side panes, with scrollable scan settings and a resizable organize label area.
+- Keep results, actions, and progress visible across Scan, Settings, and Extras tabs.
+- Include divider positions in explicit configuration saving, reset, and user defaults; use a 1440x960 default window.
+
 ## [0.5.2] - 2026-09-15
 
 ### Removed

@@ -108,7 +108,7 @@ root.withdraw()
 settings = Settings(directory, {})
 view = MainView(root, settings)
 assert not settings.state_path.exists()
-assert [view.tabs.tab(tab, "text") for tab in view.tabs.tabs()] == ["Scan", "Settings", "Extras"]
+assert [view.tabs.tab(tab, "text") for tab in view.tabs.tabs()] == ["Sort Media", "Models", "Settings", "Extras"]
 assert view.config_path_var.get() == str(settings.config_path)
 config_before = settings.config_path.read_text()
 view.ultralytics_api_key.set("manual-test-key")
@@ -177,4 +177,68 @@ view.close()
 assert restored.state_path.read_text() == before_close
 assert Settings(directory, {}).values.model == "new-default"
 '''
+    subprocess.run([sys.executable, "-c", script, str(tmp_path)], check=True)
+
+
+def test_layout_dividers_and_persistent_controls(tmp_path):
+    script = """
+import sys
+import tkinter as tk
+from pathlib import Path
+from app.config import AppState, Settings
+from app.main import MainView
+root = tk.Tk()
+root.geometry("1440x960")
+settings = Settings(Path(sys.argv[1]), {"active_tab": "Settings", "scan_divider": 240})
+view = MainView(root, settings)
+view.pack(fill="both", expand=True)
+root.update()
+view.save_config()
+assert settings.state.scan_divider == 240
+view.tabs.select(view.scan_tab)
+root.update()
+assert view.scan_panes.sashpos(0) == 240
+view.main_panes.sashpos(0, 500)
+view.scan_panes.sashpos(0, 80)
+root.update()
+assert view.main_scrollbar.winfo_ismapped()
+view.main_canvas.yview_moveto(1)
+assert view.main_canvas.yview()[0] > 0
+view.scan_panes.sashpos(0, 200)
+root.update()
+assert view.label_canvas.winfo_height() > 64
+saved = settings.state_path.read_bytes()
+for tab in (view.settings_tab, view.extras_tab, view.scan_tab):
+    view.tabs.select(tab)
+    root.update()
+    assert all(widget.winfo_ismapped() for widget in (
+        view.scan_button, view.move_button, view.stop_button,
+        view.save_config_button, view.progress, view.tree,
+    ))
+assert view.scan_panes.sashpos(0) == 200
+assert settings.state_path.read_bytes() == saved
+view.save_config()
+view.executor.shutdown(wait=False)
+view.destroy()
+settings = Settings(Path(sys.argv[1]), {})
+view = MainView(root, settings)
+view.pack(fill="both", expand=True)
+root.update()
+assert (view.main_panes.sashpos(0), view.scan_panes.sashpos(0)) == (500, 200)
+root.geometry("920x620")
+root.update()
+assert view.main_panes.sashpos(0) == 500
+assert view.tree.winfo_width() > 300
+view.inputs[0].focus_force()
+root.update()
+view.inputs[0].event_generate("<Tab>")
+root.update()
+assert root.focus_get() == view.inputs[1]
+view.reset_config()
+root.update()
+assert view.main_panes.sashpos(0) == AppState().main_divider
+assert view.scan_panes.sashpos(0) == AppState().scan_divider
+assert Settings(Path(sys.argv[1]), {}).values.scan_divider == 200
+view.close()
+"""
     subprocess.run([sys.executable, "-c", script, str(tmp_path)], check=True)
