@@ -19,7 +19,7 @@ uv run yolo-media-sorter
 - `state.json` stores scan and organize settings, selected labels, sorting, expanded preview rows, window geometry, and the active tab only when **Save config** is clicked. Changing controls, switching tabs, resizing, and closing the app do not save anything.
 - Startup precedence is **defaults < user config < saved state < explicitly supplied app arguments**. Omitted arguments have no defaults that overwrite restored values. Launch arguments are written to state only when **Save config** is clicked.
 
-**Reset config** clears the saved state and restores the user defaults from `config.json` (or built-in defaults when no user defaults have been saved). **Set default config** saves the current Scan values as user defaults and clears older state overrides. These buttons are in the Scan tab’s bottom controls. API key inputs are still saved separately with **Save settings**.
+**Reset config** clears the saved state and restores the user defaults from `config.json` (or built-in defaults when no user defaults have been saved). **Set default config** saves the current Scan values as user defaults and clears older state overrides. These buttons are in the Scan tabâ€™s bottom controls. API key inputs are still saved separately with **Save settings**.
 
 For example:
 
@@ -132,13 +132,13 @@ Requires PowerShell 7, uv, and Inno Setup 6 installed at `%LOCALAPPDATA%\Program
 
 ```powershell
 pwsh -NoProfile -File scripts/build.ps1
-.venv-build/Scripts/python.exe scripts/check-launch.py dist/YOLO-media-sorter-0.0.5-windows-amd64/YOLO-media-sorter-0.0.5-windows-amd64.exe build/launch.png
+.venv-build/Scripts/python.exe scripts/check-launch.py dist/YOLO-media-sorter-0.5.1-windows-amd64/YOLO-media-sorter-0.5.1-windows-amd64.exe build/launch.png
 pwsh -NoProfile -File scripts/build-setup.ps1
 ```
 
 The build uses the locked dependencies in a separate `.venv-build` environment. Versioned artifacts are written to `dist/`: a standalone application folder, a portable ZIP, and a per-user Setup executable. Python is bundled; model weights download on first use into the app configuration directory. The Windows bundle uses the locked CPU build of PyTorch.
 
-After verifying the packaged app opens, publish `v0.0.5` as a GitHub **prerelease** and attach both the portable ZIP and Setup executable. Application version and artifact names come from `pyproject.toml`.
+After verifying the packaged app opens, publish `v0.5.1` as a GitHub **prerelease** and attach both the portable ZIP and Setup executable. Application version and artifact names come from `pyproject.toml`.
 
 ## Development checks
 
