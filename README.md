@@ -19,7 +19,7 @@ uv run yolo-media-sorter
 - `state.json` stores scan and organize settings, selected labels, sorting, expanded preview rows, window geometry, and the active tab only when **Save config** is clicked. Changing controls, switching tabs, resizing, and closing the app do not save anything.
 - Startup precedence is **defaults < user config < saved state < explicitly supplied app arguments**. Omitted arguments have no defaults that overwrite restored values. Launch arguments are written to state only when **Save config** is clicked.
 
-**Reset config** clears the saved state and restores the user defaults from `config.json` (or built-in defaults when no user defaults have been saved). **Set default config** saves the current Scan values as user defaults and clears older state overrides. These buttons are in the Scan tab’s bottom controls. API key inputs are still saved separately with **Save settings**.
+Like Spectra's **Reset Default**, **Reset config** restores built-in defaults in the current UI without changing either saved file. Click **Save config** to persist the reset; closing without saving retains the previously saved configuration. API key settings are unaffected. **Set default config** saves the current Scan values as user defaults and clears older state overrides. These buttons are in the Scan tab’s bottom controls. API key inputs are still saved separately with **Save settings**.
 
 For example:
 
@@ -42,6 +42,8 @@ The **Settings** tab shows the current config file path and the `ULTRALYTICS_API
 6. Click **Move classified media** to move those files. Scanning alone never moves media.
 
 Right-click a preview row for **Open file** or **Open path** (the containing folder). These actions track the current file location after a move.
+
+Use **Extras > Install > Install in File Explorer** to add **Open in YOLO Media Sorter** to the current Windows user's right-click menus for folders, folder backgrounds, and drives. The menu opens the Scan tab with that folder selected as the media source.
 
 **Prediction count**, immediately after **Predicted label**, shows total returned predictions on each file row and the count for that label on each match row. These preview counts retain repeated predictions and sort numerically. Organize filters do not hide raw scan predictions or change these counts. They do not imply a count of people or objects.
 

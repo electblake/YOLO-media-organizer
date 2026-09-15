@@ -62,12 +62,43 @@ def test_api_overrides_save_only_to_config_and_clear_to_environment(tmp_path, mo
     assert os.environ["ULTRALYTICS_API_KEY"] == "environment-ultralytics"
 
 
+def test_reset_is_unsaved_and_preserves_api_launch_overrides(tmp_path):
+    AppConfig(model="user-default", ultralytics_api_key="saved-key").save(tmp_path / "config.json")
+    AppState(model="saved-model", active_tab="Extras", selected_labels=["person"]).save(tmp_path / "state.json")
+    settings = Settings(tmp_path, {"model": "launch-model", "ultralytics_api_key": "launch-key"})
+    config_before = settings.config_path.read_bytes()
+    state_before = settings.state_path.read_bytes()
+    settings.reset_state()
+    assert settings.values.model == AppState().model
+    assert settings.values.active_tab == "Scan"
+    assert settings.values.selected_labels == []
+    assert settings.values.ultralytics_api_key == "launch-key"
+    assert settings.state.model == "saved-model"
+    assert settings.config_path.read_bytes() == config_before
+    assert settings.state_path.read_bytes() == state_before
+    assert Settings(tmp_path, {}).values.model == "saved-model"
+    settings.save_state(AppState.model_validate(settings.values.model_dump()))
+    restored = Settings(tmp_path, {})
+    assert restored.values.model == AppState().model
+    assert restored.values.active_tab == "Scan"
+    assert restored.values.ultralytics_api_key == "saved-key"
+    assert settings.config_path.read_bytes() == config_before
+
+
+def test_first_launch_reset_does_not_create_saved_files(tmp_path):
+    settings = Settings(tmp_path, {"model": "launch-model"})
+    settings.reset_state()
+    assert settings.values.model == AppState().model
+    assert not settings.config_path.exists()
+    assert not settings.state_path.exists()
+
+
 def test_ui_manual_save_reset_and_default_without_auto_saving(tmp_path):
     script = '''
 import sys
 import tkinter as tk
 from pathlib import Path
-from app.config import AppConfig, Settings
+from app.config import AppConfig, AppState, Settings
 from app.main import MainView
 from app.scanner import MediaResult, ScanOptions
 directory = Path(sys.argv[1])
@@ -77,7 +108,7 @@ root.withdraw()
 settings = Settings(directory, {})
 view = MainView(root, settings)
 assert not settings.state_path.exists()
-assert [view.tabs.tab(tab, "text") for tab in view.tabs.tabs()] == ["Scan", "Settings"]
+assert [view.tabs.tab(tab, "text") for tab in view.tabs.tabs()] == ["Scan", "Settings", "Extras"]
 assert view.config_path_var.get() == str(settings.config_path)
 config_before = settings.config_path.read_text()
 view.ultralytics_api_key.set("manual-test-key")
@@ -123,11 +154,14 @@ assert view.tree.item(str(result.source), "open")
 assert restored.state_path.read_text() == saved
 assert restored.config.model == "configured"
 view.reset_config_button.invoke()
-assert view.model.get() == "configured"
-assert view.move_confidence.get() == .6
+assert view.model.get() == AppState().model
+assert view.move_confidence.get() == AppState().move_confidence
 assert view.sort_columns == {}
 assert not view.label_vars["dynamic"].get()
-assert restored.state_path.read_text() == "{}"
+assert restored.state_path.read_text() == saved
+assert Settings(directory, {}).values.model == "custom"
+assert view.ultralytics_api_key.get() == "manual-test-key"
+assert restored.values.ultralytics_api_key == "manual-test-key"
 view.model.set("new-default")
 view.move_confidence.set(.42)
 assert restored.config.model == "configured"
@@ -135,8 +169,8 @@ view.default_config_button.invoke()
 assert Settings(directory, {}).values.model == "new-default"
 view.model.set("unsaved")
 view.reset_config_button.invoke()
-assert view.model.get() == "new-default"
-assert view.move_confidence.get() == .42
+assert view.model.get() == AppState().model
+assert view.move_confidence.get() == AppState().move_confidence
 view.model.set("discard-on-close")
 before_close = restored.state_path.read_text()
 view.close()

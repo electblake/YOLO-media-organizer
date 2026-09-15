@@ -27,9 +27,11 @@ class AppState(BaseModel):
     videos: bool = True
     selected_labels: list[str] = Field(default_factory=list)
     sort_columns: dict[str, bool] = Field(default_factory=dict)
-    window_geometry: str = "1100x760"
+    window_geometry: str = "1440x960"
+    main_divider: int = 460
+    scan_divider: int = 350
     expanded_rows: list[str] = Field(default_factory=list)
-    active_tab: Literal["Scan", "Settings"] = "Scan"
+    active_tab: Literal["Scan", "Settings", "Extras"] = "Scan"
 
     def save(self, path: Path):
         path.write_text(self.model_dump_json(indent=2, exclude_unset=True), encoding="utf-8")
@@ -66,14 +68,14 @@ class Settings:
         self.state.save(self.state_path)
 
     def reset_state(self):
-        self.state = AppState()
-        self.state.save(self.state_path)
-        self.values = self.config.model_copy(deep=True)
+        self.values = AppConfig.model_validate(self.values.model_dump() | AppState().model_dump())
 
     def set_default(self, state: AppState):
         self.config = AppConfig.model_validate(self.config.model_dump() | state.model_dump())
         self.config.save(self.config_path)
-        self.reset_state()
+        self.state = AppState()
+        self.state.save(self.state_path)
+        self.values = self.config.model_copy(deep=True)
 
     def save_config(self, **changes):
         self.config = AppConfig.model_validate(self.config.model_dump() | changes)

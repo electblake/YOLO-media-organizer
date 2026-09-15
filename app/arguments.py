@@ -14,4 +14,5 @@ def build_parser():
     for name in ("recursive", "videos"):
         parser.add_argument(f"--{name}", action=argparse.BooleanOptionalAction)
     parser.add_argument("--selected-labels", nargs="*")
+    parser.add_argument("--active-tab", choices=("Scan", "Settings", "Extras"))
     return parser
