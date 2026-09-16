@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-15
+
+### Changed
+
+- Show model resolution, download, extraction, weight loading, and class reading in the bottom status message.
+- Show download bytes and percentages for Hugging Face and direct URL models, with an animated progress bar during loading stages.
+- Confirm when saved API key overrides have been applied.
+- Route Hugging Face class-loading progress to the GUI without requiring a console.
+
 ## [0.7.0] - 2026-09-15
 
 ### Changed

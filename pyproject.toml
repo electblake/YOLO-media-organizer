@@ -1,6 +1,6 @@
 [project]
 name = "yolo-media-organizer"
-version = "0.7.0"
+version = "0.7.1"
 description = "Index images and video snapshots with YOLO and move media into label folders"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -9,7 +9,8 @@ dependencies = [
     "opencv-python>=4.10",
     "pillow>=10",
     "platformdirs>=4",
-    "huggingface-hub>=0.27",
+    "huggingface-hub>=1.31.0",
+    "tqdm>=4.67",
     "dill>=0.4.1",
     "pydantic>=2,<3",
 ]

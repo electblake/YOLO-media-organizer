@@ -6,6 +6,7 @@ import shutil
 import sqlite3
 from contextlib import closing
 from dataclasses import asdict, dataclass
+from io import StringIO
 from pathlib import Path
 from threading import Event
 from urllib.parse import quote, unquote, urlsplit
@@ -16,6 +17,7 @@ import cv2
 import ultralytics
 from huggingface_hub import hf_hub_download
 from PIL import Image, ImageOps
+from tqdm import tqdm
 from ultralytics import YOLO
 from ultralytics.utils.checks import check_file
 
@@ -80,25 +82,47 @@ class MediaResult:
     frame_number: int | None
 
 
-def load_model(reference: str):
+def load_model(reference: str, emit=None):
+    if emit is not None:
+        emit("status", f"Resolving model: {reference}")
     ultralytics.settings.update(
         weights_dir=str(MODELS_DIR / "ultralytics"),
         runs_dir=str(CONFIG_DIR / "runs"),
         datasets_dir=str(CONFIG_DIR / "datasets"),
     )
     if reference.startswith(("ul://", "https://platform.ultralytics.com/")):
+        if emit is not None:
+            emit("status", "Checking cache / downloading Ultralytics model")
         if reference.startswith("https://"):
             reference = "ul://" + urlsplit(reference).path.strip("/")
         reference = check_file(reference, download_dir=MODELS_DIR / "platform")
     elif reference.startswith("hf://"):
         owner, repo, filename = reference[5:].split("/", 2)
-        reference = hf_hub_download(repo_id=f"{owner}/{repo}", filename=filename, cache_dir=HF_CACHE_DIR)
+        download_options = {}
+        if emit is not None:
+            emit("status", f"Checking Hugging Face cache / requesting {owner}/{repo}/{filename}")
+
+            class DownloadProgress(tqdm):
+                def __init__(self, *args, **kwargs):
+                    kwargs["file"] = StringIO()
+                    super().__init__(*args, **kwargs)
+
+                def display(self, msg=None, pos=None):
+                    emit("download_progress", (self.desc, self.n, self.total))
+
+            download_options["tqdm_class"] = DownloadProgress
+        reference = hf_hub_download(repo_id=f"{owner}/{repo}", filename=filename, cache_dir=HF_CACHE_DIR, **download_options)
     elif reference.startswith(("https://", "http://")):
         target = MODELS_DIR / "urls" / hashlib.sha256(reference.encode()).hexdigest() / Path(unquote(urlsplit(reference).path)).name
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.exists():
-            urlretrieve(reference, target)
+            if emit is not None:
+                emit("status", f"Downloading {target.name}")
+            reporthook = (lambda blocks, size, total: emit("download_progress", (target.name, blocks * size, total))) if emit is not None else None
+            urlretrieve(reference, target, reporthook=reporthook)
         if target.suffix == ".zip":
+            if emit is not None:
+                emit("status", f"Extracting {target.name}")
             checkpoint = target.with_suffix(".pt")
             if not checkpoint.exists():
                 with ZipFile(target) as archive:
@@ -112,6 +136,8 @@ def load_model(reference: str):
     else:
         source = Path(reference).resolve()
         if not source.is_relative_to(CONFIG_DIR):
+            if emit is not None:
+                emit("status", f"Copying local model: {source.name}")
             target = MODELS_DIR / "local" / hashlib.sha256(str(source).encode()).hexdigest() / source.name
             target.parent.mkdir(parents=True, exist_ok=True)
             if source.is_dir():
@@ -119,7 +145,12 @@ def load_model(reference: str):
             else:
                 shutil.copy2(source, target)
             reference = str(target)
-    return YOLO(reference)
+    if emit is not None:
+        emit("status", "Loading YOLO weights (downloading if not cached)")
+    model = YOLO(reference)
+    if emit is not None:
+        emit("status", "Reading model classes")
+    return model
 
 
 def discover(options: ScanOptions, label_folders=()):

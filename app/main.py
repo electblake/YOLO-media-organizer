@@ -357,6 +357,7 @@ class MainView(ttk.Frame):
             ultralytics_api_key=self.ultralytics_api_key.get(),
             huggingface_api_key=self.huggingface_api_key.get(),
         )
+        self.status.set("Settings saved. API key overrides applied.")
 
     def select_label(self, label):
         labels = set(self.settings.values.selected_labels)
@@ -437,18 +438,43 @@ class MainView(ttk.Frame):
         self.operation = "classes"
         self.set_busy(True)
         self.stop_button.state(["disabled"])
-        self.classes_future = self.executor.submit(lambda: load_model(reference).names)
+        self.status.set(f"Preparing to load classes: {self.classes_model}")
+        self.progress.configure(mode="indeterminate", value=0, maximum=100)
+        self.progress.start()
+        self.classes_future = self.executor.submit(lambda: load_model(reference, self.emit).names)
         self.after(75, self.poll_classes)
 
     def poll_classes(self):
-        if not self.classes_future.done():
+        for _ in range(100):
+            if self.events.empty():
+                break
+            kind, payload = self.events.get()
+            if kind == "status":
+                self.status.set(payload)
+                self.progress.stop()
+                self.progress.configure(mode="indeterminate", value=0, maximum=100)
+                self.progress.start()
+            elif kind == "download_progress":
+                name, completed, total = payload
+                if total is not None and total > 0:
+                    completed = min(completed, total)
+                    self.progress.stop()
+                    self.progress.configure(mode="determinate", maximum=total, value=completed)
+                    self.status.set(f"{name}: {completed / 1048576:.1f} / {total / 1048576:.1f} MiB ({completed / total:.0%})")
+                else:
+                    self.status.set(f"{name}: {completed / 1048576:.1f} MiB downloaded")
+        if not self.classes_future.done() or not self.events.empty():
             self.after(75, self.poll_classes)
             return
+        self.progress.stop()
+        self.progress.configure(mode="determinate", value=0, maximum=100)
         self.set_busy(False)
         classes = self.classes_future.result()
         if self.model.get() == self.classes_model:
             self.model_classes = classes
         self.refresh_classes()
+        self.progress["value"] = 100
+        self.status.set(f"Loaded {len(classes)} classes: {self.classes_model}")
 
     def refresh_classes(self, *_):
         query = self.class_filter.get().casefold()

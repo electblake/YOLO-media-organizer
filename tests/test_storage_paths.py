@@ -64,7 +64,7 @@ def test_model_storage_routes(tmp_path, monkeypatch):
         scanner.load_model(str(tmp_path / "missing" / "custom.pt"))
     url_calls = []
 
-    def retrieve(url, target):
+    def retrieve(url, target, reporthook):
         url_calls.append(url)
         target.write_bytes(b"downloaded weights")
 
@@ -75,7 +75,7 @@ def test_model_storage_routes(tmp_path, monkeypatch):
     assert scanner.load_model(url) == downloaded
     assert url_calls == [url]
 
-    def retrieve_archive(url, target):
+    def retrieve_archive(url, target, reporthook):
         url_calls.append(url)
         with ZipFile(target, "w") as archive:
             archive.writestr("yolov8m_as03.pt", b"archived weights")
@@ -106,3 +106,23 @@ print(json.dumps([str(CONFIG_DIR), str(constants.HF_HUB_CACHE), str(constants.HF
 """
     paths = json.loads(subprocess.check_output([sys.executable, "-c", script], text=True).splitlines()[-1])
     assert all(Path(path).resolve().is_relative_to(Path(paths[0]).resolve()) for path in paths[1:])
+
+
+def test_hf_progress_without_console(tmp_path, monkeypatch):
+    events = []
+    monkeypatch.setattr(sys, "stderr", None)
+    monkeypatch.setattr(scanner.ultralytics, "settings", SimpleNamespace(update=lambda **kwargs: None))
+    monkeypatch.setattr(scanner, "YOLO", lambda reference: SimpleNamespace(names={0: "person"}))
+
+    def download(**kwargs):
+        with kwargs["tqdm_class"](total=100, desc="model.pt", mininterval=0) as progress:
+            progress.update(50)
+            progress.update(50)
+        return str(tmp_path / "model.pt")
+
+    monkeypatch.setattr(scanner, "hf_hub_download", download)
+    model = scanner.load_model("hf://owner/repo/model.pt", lambda *event: events.append(event))
+    assert model.names == {0: "person"}
+    assert ("download_progress", ("model.pt", 50, 100)) in events
+    assert ("download_progress", ("model.pt", 100, 100)) in events
+    assert events[-1] == ("status", "Reading model classes")

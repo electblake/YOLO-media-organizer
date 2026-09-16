@@ -1857,7 +1857,7 @@ wheels = [
 
 [[package]]
 name = "yolo-media-organizer"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "." }
 dependencies = [
     { name = "dill" },
@@ -1866,6 +1866,7 @@ dependencies = [
     { name = "pillow" },
     { name = "platformdirs" },
     { name = "pydantic" },
+    { name = "tqdm" },
     { name = "ultralytics" },
 ]
 
@@ -1890,11 +1891,12 @@ gpu = [
 [package.metadata]
 requires-dist = [
     { name = "dill", specifier = ">=0.4.1" },
-    { name = "huggingface-hub", specifier = ">=0.27" },
+    { name = "huggingface-hub", specifier = ">=1.31.0" },
     { name = "opencv-python", specifier = ">=4.10" },
     { name = "pillow", specifier = ">=10" },
     { name = "platformdirs", specifier = ">=4" },
     { name = "pydantic", specifier = ">=2,<3" },
+    { name = "tqdm", specifier = ">=4.67" },
     { name = "ultralytics", specifier = ">=8.4.120" },
 ]
 
