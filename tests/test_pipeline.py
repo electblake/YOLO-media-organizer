@@ -110,10 +110,11 @@ def test_index_reuse_and_invalidation(tmp_path, monkeypatch):
     assert len(calls) == 6
 
 
-def test_scan_passes_media_folder_to_one_ultralytics_run(tmp_path, monkeypatch):
+@pytest.mark.parametrize("count", [18, 60])
+def test_scan_passes_media_folder_to_one_ultralytics_run(tmp_path, monkeypatch, count):
     source = tmp_path / "source"
     source.mkdir()
-    for index in range(18):
+    for index in range(count):
         Image.new("RGB", (16, 16), (index, 0, 0)).save(source / f"{index:02}.png")
     (source / "nested").mkdir()
     Image.new("RGB", (16, 16)).save(source / "nested" / "nested.png")
@@ -135,29 +136,40 @@ def test_scan_passes_media_folder_to_one_ultralytics_run(tmp_path, monkeypatch):
     monkeypatch.setattr(scanner, "load_model", lambda _: SimpleNamespace(
         ckpt_path=str(weights), names=names, predict=predict,
     ))
+    times = iter([0, *[index * 0.5 if index <= 30 else 15 + (index - 30) * 2 for index in range(1, count + 1)]])
+    monkeypatch.setattr(scanner, "perf_counter", lambda: next(times))
     events = []
     log_path = tmp_path / "scan.log"
+    overrides = {} if count == 18 else {"batch": 8, "quantize": 16, "compile": True, "imgsz": 320, "vid_stride": 3}
     results = scanner.scan(
-        ScanOptions(source), tmp_path / "index.db", log_path, Event(), lambda *event: events.append(event),
+        ScanOptions(source, **overrides), tmp_path / "index.db", log_path, Event(), lambda *event: events.append(event),
     )
     assert len(calls) == 1
     assert calls[0][0] == str(source)
     assert calls[0][1]["stream"] is True
     assert calls[0][1]["conf"] == 0.25
     assert calls[0][1]["verbose"] and not calls[0][1]["save"]
-    assert len(results) == 18
+    expected = {"batch": 1, "quantize": None, "compile": False, "vid_stride": 1} | overrides
+    for name, value in expected.items():
+        assert calls[0][1][name] == value
+    if not overrides:
+        assert "imgsz" not in calls[0][1]
+    assert len(results) == count
     assert all(not result.cached and result.predictions[0]["label"] == "cat" for result in results)
-    assert [payload for kind, payload in events if kind == "status"][-1] == "Scanning (0/18)"
-    assert ("total", 18) in events
+    assert [payload for kind, payload in events if kind == "status"][-1] == f"Scanning (0/{count})"
+    assert ("total", count) in events
     assert ("device", "cpu") in events
-    assert [kind for kind, _ in events][-18:] == ["item"] * 18
+    assert [kind for kind, _ in events][-count:] == ["item"] * count
     assert [payload[:2] for kind, payload in events if kind == "scan_progress"] == [
-        (index, 18) for index in range(1, 19)
+        (index, count) for index in range(1, count + 1)
     ]
+    rates = [payload[3] for kind, payload in events if kind == "scan_progress"]
+    assert rates[0] == 2
+    assert rates[-1] == (2 if count == 18 else 0.5)
     log = log_path.read_text(encoding="utf-8")
     assert "native verbose output" in log
     assert "Inference device: cpu" in log
-    assert "Scanning (18/18)" not in log
+    assert f"Scanning ({count}/{count})" not in log
 
 
 def test_moves_originals_and_journals_without_overwriting(tmp_path):

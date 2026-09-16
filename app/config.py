@@ -21,6 +21,11 @@ class AppState(BaseModel):
     move_confidence: float = 0.5
     min_predictions: int = 1
     max_predictions: int = -1
+    batch: int = 1
+    precision: Literal["Default", "FP32", "FP16"] = "Default"
+    compile: bool = False
+    imgsz: str = "Default"
+    vid_stride: int = 1
     frame_percentage: float = 50
     device: str = ""
     recursive: bool = True
@@ -29,7 +34,6 @@ class AppState(BaseModel):
     sort_columns: dict[str, bool] = Field(default_factory=dict)
     window_geometry: str = "1440x960"
     main_divider: int = 460
-    scan_divider: int = 350
     expanded_rows: list[str] = Field(default_factory=list)
     active_tab: Literal["Scan", "Models", "Settings", "Extras"] = "Scan"
 

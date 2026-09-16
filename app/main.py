@@ -6,6 +6,7 @@ import tkinter as tk
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from math import ceil
 from pathlib import Path
 from threading import Event
 from tkinter import filedialog, ttk
@@ -49,11 +50,17 @@ class MainView(ttk.Frame):
         self.move_confidence = tk.DoubleVar(self, value=values.move_confidence)
         self.min_predictions = tk.IntVar(self, value=values.min_predictions)
         self.max_predictions = tk.IntVar(self, value=values.max_predictions)
+        self.batch = tk.IntVar(self, value=values.batch)
+        self.precision = tk.StringVar(self, value=values.precision)
+        self.compile = tk.BooleanVar(self, value=values.compile)
+        self.imgsz = tk.StringVar(self, value=values.imgsz)
+        self.vid_stride = tk.IntVar(self, value=values.vid_stride)
         self.frame_percentage = tk.DoubleVar(self, value=values.frame_percentage)
         self.device = tk.StringVar(self, value=values.device)
         self.recursive = tk.BooleanVar(self, value=values.recursive)
         self.videos = tk.BooleanVar(self, value=values.videos)
         self.status = tk.StringVar(self, value="Choose a media folder. Destinations are model-label folders inside it.")
+        self.scan_speed = tk.StringVar(self)
         self.media_stats = tk.StringVar(self, value="0 files · 0 labels · 0 to move (0%)")
         self.inference_device = tk.StringVar(self, value="Device: not started")
         self.inputs = []
@@ -68,25 +75,13 @@ class MainView(ttk.Frame):
         self.main_panes.add(self.tabs, weight=0)
         self.scan_tab = ttk.Frame(self.tabs)
         self.scan_tab.columnconfigure(0, weight=1)
-        self.scan_tab.rowconfigure(0, weight=1)
-        self.scan_divider = values.scan_divider
-        self.scan_panes = ttk.Panedwindow(self.scan_tab, orient=tk.VERTICAL)
-        self.scan_panes.grid(row=0, column=0, sticky="nsew")
-        controls_pane = ttk.Frame(self.scan_panes)
-        controls_pane.columnconfigure(0, weight=1)
-        controls_pane.rowconfigure(0, weight=1)
-        self.scan_panes.add(controls_pane, weight=1)
-        self.main_canvas = tk.Canvas(controls_pane, highlightthickness=0)
-        self.main_canvas.grid(row=0, column=0, sticky="nsew")
-        self.main_scrollbar = ttk.Scrollbar(controls_pane, orient="vertical", command=self.main_canvas.yview)
-        self.main_scrollbar.grid(row=0, column=1, sticky="ns")
-        self.main_canvas.configure(yscrollcommand=self.main_scrollbar.set)
+        self.scan_tab.rowconfigure(1, weight=1)
         self.models_tab = ttk.Frame(self.tabs, padding=12)
         self.models_tab.columnconfigure(0, weight=1)
         self.models_tab.rowconfigure(2, weight=1)
         self.settings_tab = ttk.Frame(self.tabs, padding=12)
         self.extras_tab = ExtrasTab(self.tabs)
-        self.tabs.add(self.scan_tab, text="Sort Media")
+        self.tabs.add(self.scan_tab, text="Organize")
         self.tabs.add(self.models_tab, text="Models")
         self.tabs.add(self.settings_tab, text="Settings")
         self.tabs.add(self.extras_tab, text="Extras")
@@ -116,11 +111,8 @@ class MainView(ttk.Frame):
         self.save_settings_button = ttk.Button(self.settings_tab, text="Save settings", command=self.save_settings)
         self.save_settings_button.grid(row=12, column=0, sticky="w")
 
-        form = ttk.Frame(self.main_canvas, padding=12)
-        self.main_frame = form
-        self.main_canvas_window = self.main_canvas.create_window(0, 0, window=form, anchor="nw")
-        form.bind("<Configure>", self.configure_main_scroll)
-        self.main_canvas.bind("<Configure>", self.resize_main_content)
+        form = ttk.Frame(self.scan_tab, padding=12)
+        form.grid(row=0, column=0, sticky="ew")
         form.columnconfigure(1, weight=1)
         for row, (title, variable, folder) in enumerate([
             ("Media folder", self.source, True),
@@ -184,6 +176,20 @@ class MainView(ttk.Frame):
         frame = ttk.Spinbox(controls, from_=0, to=100, increment=1, textvariable=self.frame_percentage, width=6, state="readonly")
         frame.grid(row=0, column=1, sticky="w", padx=8, pady=4)
         self.inputs.extend([scan_threshold, frame])
+        for title, variable, column in [("Batch size", self.batch, 0), ("Video stride", self.vid_stride, 2)]:
+            ttk.Label(controls, text=title).grid(row=1, column=column, sticky="w")
+            spinbox = ttk.Spinbox(controls, from_=1, to=2147483647, textvariable=variable, width=6)
+            spinbox.grid(row=1, column=column + 1, sticky="w", padx=8, pady=4)
+            self.inputs.append(spinbox)
+        ttk.Label(controls, text="Precision").grid(row=2, column=0, sticky="w")
+        precision = ttk.Combobox(controls, textvariable=self.precision, values=("Default", "FP32", "FP16"), width=8, state="readonly")
+        precision.grid(row=2, column=1, sticky="w", padx=8, pady=4)
+        ttk.Label(controls, text="Image size").grid(row=2, column=2, sticky="w")
+        imgsz = ttk.Combobox(controls, textvariable=self.imgsz, values=("Default", "224", "320", "640", "1280"), width=8)
+        imgsz.grid(row=2, column=3, sticky="w", padx=8, pady=4)
+        compile_toggle = ttk.Checkbutton(controls, text="Compile", variable=self.compile)
+        compile_toggle.grid(row=3, column=0, columnspan=2, sticky="w", pady=4)
+        self.inputs.extend([precision, imgsz, compile_toggle])
         toggles = ttk.Frame(form)
         toggles.grid(row=6, column=0, columnspan=3, sticky="w")
         for title, variable in [("Include subfolders", self.recursive), ("Include videos", self.videos)]:
@@ -211,8 +217,8 @@ class MainView(ttk.Frame):
         ttk.Label(actions, textvariable=self.media_stats).pack(side="right", padx=(8, 12))
         ttk.Label(actions, textvariable=self.inference_device).pack(side="right", padx=(8, 0))
 
-        label_panel = ttk.LabelFrame(self.scan_panes, text="Organize Files", padding=8)
-        self.scan_panes.add(label_panel, weight=1)
+        label_panel = ttk.LabelFrame(self.scan_tab, text="Organize Files", padding=8)
+        label_panel.grid(row=1, column=0, sticky="nsew")
         label_panel.rowconfigure(2, weight=1)
         label_panel.columnconfigure(0, weight=1)
         filters = ttk.Frame(label_panel)
@@ -282,8 +288,9 @@ class MainView(ttk.Frame):
         footer.grid(row=4, column=0, sticky="ew", pady=(12, 0))
         footer.columnconfigure(0, weight=1)
         ttk.Label(footer, textvariable=self.status).grid(row=0, column=0, sticky="w")
+        ttk.Label(footer, textvariable=self.scan_speed, anchor="e").grid(row=0, column=1, sticky="e", padx=(12, 0))
         self.progress = ttk.Progressbar(footer, mode="determinate")
-        self.progress.grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        self.progress.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
         self.console_frame = ttk.LabelFrame(self, text="Console")
         self.console_frame.grid(row=5, column=0, sticky="ew", pady=(12, 0))
         self.console_frame.columnconfigure(0, weight=1)
@@ -298,37 +305,16 @@ class MainView(ttk.Frame):
             variable.trace_add("write", self.refresh_results)
         self.update_sort_headings()
         self.main_panes.bind("<Map>", self.restore_main_divider)
-        self.scan_panes.bind("<Map>", self.restore_scan_divider)
-        self.scan_panes.bind("<Unmap>", self.remember_scan_divider)
 
     def restore_main_divider(self, event):
         self.main_panes.sashpos(0, self.settings.values.main_divider)
         self.main_panes.unbind("<Map>")
 
-    def restore_scan_divider(self, event):
-        self.scan_panes.sashpos(0, self.settings.values.scan_divider)
-        self.scan_panes.unbind("<Map>")
-
-    def remember_scan_divider(self, _event=None):
-        self.scan_divider = self.scan_panes.sashpos(0)
-
-    def configure_main_scroll(self, _event=None):
-        self.main_canvas.configure(scrollregion=self.main_canvas.bbox("all"))
-        if self.main_frame.winfo_reqheight() > self.main_canvas.winfo_height():
-            self.main_scrollbar.grid()
-        else:
-            self.main_scrollbar.grid_remove()
-
-    def resize_main_content(self, event):
-        self.main_canvas.itemconfigure(self.main_canvas_window, width=event.width)
-        self.after_idle(self.configure_main_scroll)
-
     def current_state(self):
-        if self.scan_panes.winfo_ismapped():
-            self.remember_scan_divider()
         values = {name: getattr(self, name).get() for name in (
             "source", "model", "crop_model", "scan_confidence", "move_confidence", "min_predictions",
             "max_predictions", "frame_percentage", "device", "recursive", "videos",
+            "batch", "precision", "compile", "imgsz", "vid_stride",
         )}
         return AppState(
             **values, selected_labels=self.settings.values.selected_labels,
@@ -336,7 +322,6 @@ class MainView(ttk.Frame):
             expanded_rows=[row for row in self.tree.get_children() if self.tree.item(row, "open")],
             window_geometry=self.winfo_toplevel().geometry(),
             main_divider=self.main_panes.sashpos(0),
-            scan_divider=self.scan_divider,
             active_tab=("Scan", "Models", "Settings", "Extras")[self.tabs.index(self.tabs.select())],
         )
 
@@ -348,7 +333,8 @@ class MainView(ttk.Frame):
         self.settings.reset_state()
         values = self.settings.values
         for name in ("source", "model", "crop_model", "scan_confidence", "move_confidence", "min_predictions",
-                     "max_predictions", "frame_percentage", "device", "recursive", "videos"):
+                     "max_predictions", "frame_percentage", "device", "recursive", "videos",
+                     "batch", "precision", "compile", "imgsz", "vid_stride"):
             getattr(self, name).set(getattr(values, name))
         for label, variable in self.label_vars.items():
             variable.set(label in values.selected_labels)
@@ -360,8 +346,6 @@ class MainView(ttk.Frame):
         self.tabs.select({"Scan": self.scan_tab, "Models": self.models_tab, "Settings": self.settings_tab, "Extras": self.extras_tab}[values.active_tab])
         self.update()
         self.main_panes.sashpos(0, values.main_divider)
-        self.scan_panes.sashpos(0, values.scan_divider)
-        self.scan_divider = values.scan_divider
         self.refresh_results()
         self.status.set("Configuration reset to built-in defaults. Click Save config to keep these values.")
 
@@ -583,11 +567,15 @@ class MainView(ttk.Frame):
         self.move_button.state(["!disabled"] if self.results and not (busy and self.operation in {"scan", "classes"}) else ["disabled"])
 
     def start_scan(self):
+        self.scan_speed.set("")
         self.options = ScanOptions(
             source=Path(self.source.get()).resolve(),
             model=MODEL_PRESETS[self.model.get()] if self.model.get() in MODEL_PRESETS else self.model.get(),
             crop_model=self.crop_model.get(),
             scan_confidence=self.scan_confidence.get(),
+            batch=self.batch.get(), quantize={"Default": None, "FP32": 32, "FP16": 16}[self.precision.get()],
+            compile=self.compile.get(), imgsz=None if self.imgsz.get() == "Default" else int(self.imgsz.get()),
+            vid_stride=self.vid_stride.get(),
             frame_percentage=self.frame_percentage.get(), device=self.device.get(),
             recursive=self.recursive.get(), include_videos=self.videos.get(),
         )
@@ -664,7 +652,10 @@ class MainView(ttk.Frame):
                 self.progress.stop()
                 self.progress.configure(mode="determinate", maximum=max(payload, 1), value=0)
             elif kind == "scan_progress":
-                completed, total, name = payload
+                completed, total, name, rate = payload
+                hours, seconds = divmod(ceil((total - completed) / rate), 3600)
+                minutes, seconds = divmod(seconds, 60)
+                self.scan_speed.set(f"{rate:.2f} item/s · ~{hours}h {minutes:02}m {seconds:02}s")
                 self.progress["value"] = completed
                 self.status.set(f"Scanning ({completed}/{total}) {name}")
             elif kind == "device":
@@ -683,6 +674,7 @@ class MainView(ttk.Frame):
             return
         self.set_busy(False)
         if self.operation == "scan":
+            self.scan_speed.set("")
             self.progress.stop()
         result = self.future.result()
         self.refresh_console()

@@ -108,7 +108,7 @@ root.withdraw()
 settings = Settings(directory, {})
 view = MainView(root, settings)
 assert not settings.state_path.exists()
-assert [view.tabs.tab(tab, "text") for tab in view.tabs.tabs()] == ["Sort Media", "Models", "Settings", "Extras"]
+assert [view.tabs.tab(tab, "text") for tab in view.tabs.tabs()] == ["Organize", "Models", "Settings", "Extras"]
 assert view.config_path_var.get() == str(settings.config_path)
 config_before = settings.config_path.read_text()
 view.ultralytics_api_key.set("manual-test-key")
@@ -123,6 +123,10 @@ view.options = ScanOptions(directory)
 result = MediaResult(directory / "image.png", None, None, [{"label": "dynamic", "confidence": .9}], None, False, None)
 view.results = [result]
 view.refresh_results()
+scan_values = {"batch": 8, "precision": "FP16", "compile": True, "imgsz": "320", "vid_stride": 3}
+for name, value in scan_values.items():
+    assert getattr(view, name).get() == getattr(AppState(), name)
+    getattr(view, name).set(value)
 view.model.set("custom")
 view.move_confidence.set(.75)
 view.recursive.set(False)
@@ -140,6 +144,9 @@ view.destroy()
 restored = Settings(directory, {})
 view = MainView(root, restored)
 assert view.model.get() == "custom"
+for name, value in scan_values.items():
+    assert getattr(view, name).get() == value
+    assert getattr(restored.values, name) == value
 assert view.ultralytics_api_key.get() == "manual-test-key"
 assert view.huggingface_api_key.get() == "manual-test-hf"
 assert view.move_confidence.get() == .75
@@ -156,6 +163,8 @@ assert restored.config.model == "configured"
 view.reset_config_button.invoke()
 assert view.model.get() == AppState().model
 assert view.move_confidence.get() == AppState().move_confidence
+for name in scan_values:
+    assert getattr(view, name).get() == getattr(AppState(), name)
 assert view.sort_columns == {}
 assert not view.label_vars["dynamic"].get()
 assert restored.state_path.read_text() == saved
@@ -189,24 +198,23 @@ from app.config import AppState, Settings
 from app.main import MainView
 root = tk.Tk()
 root.geometry("1440x960")
-settings = Settings(Path(sys.argv[1]), {"active_tab": "Settings", "scan_divider": 240})
+settings = Settings(Path(sys.argv[1]), {"active_tab": "Settings"})
 view = MainView(root, settings)
 view.pack(fill="both", expand=True)
 root.update()
 view.save_config()
-assert settings.state.scan_divider == 240
 view.tabs.select(view.scan_tab)
 root.update()
-assert view.scan_panes.sashpos(0) == 240
 view.main_panes.sashpos(0, 500)
-view.scan_panes.sashpos(0, 80)
 root.update()
-assert view.main_scrollbar.winfo_ismapped()
-view.main_canvas.yview_moveto(1)
-assert view.main_canvas.yview()[0] > 0
-view.scan_panes.sashpos(0, 200)
-root.update()
+large_label_height = view.label_canvas.winfo_height()
 assert view.label_canvas.winfo_height() > 64
+root.geometry("1440x1120")
+root.update()
+assert view.label_canvas.winfo_height() == large_label_height + 160
+root.geometry("1440x960")
+root.update()
+assert view.label_canvas.winfo_height() == large_label_height
 saved = settings.state_path.read_bytes()
 for tab in (view.settings_tab, view.extras_tab, view.scan_tab):
     view.tabs.select(tab)
@@ -215,7 +223,6 @@ for tab in (view.settings_tab, view.extras_tab, view.scan_tab):
         view.scan_button, view.move_button, view.stop_button,
         view.save_config_button, view.progress, view.tree,
     ))
-assert view.scan_panes.sashpos(0) == 200
 assert settings.state_path.read_bytes() == saved
 view.save_config()
 view.executor.shutdown(wait=False)
@@ -224,7 +231,7 @@ settings = Settings(Path(sys.argv[1]), {})
 view = MainView(root, settings)
 view.pack(fill="both", expand=True)
 root.update()
-assert (view.main_panes.sashpos(0), view.scan_panes.sashpos(0)) == (500, 200)
+assert view.main_panes.sashpos(0) == 500
 root.geometry("920x620")
 root.update()
 assert view.main_panes.sashpos(0) == 500
@@ -237,8 +244,7 @@ assert root.focus_get() == view.inputs[1]
 view.reset_config()
 root.update()
 assert view.main_panes.sashpos(0) == AppState().main_divider
-assert view.scan_panes.sashpos(0) == AppState().scan_divider
-assert Settings(Path(sys.argv[1]), {}).values.scan_divider == 200
+assert Settings(Path(sys.argv[1]), {}).values.main_divider == 500
 view.close()
 """
     subprocess.run([sys.executable, "-c", script, str(tmp_path)], check=True)

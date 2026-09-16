@@ -5,11 +5,13 @@ import json
 import logging
 import shutil
 import sqlite3
+from collections import deque
 from contextlib import closing
 from dataclasses import asdict, dataclass
 from io import StringIO
 from pathlib import Path
 from threading import Event
+from time import perf_counter
 from urllib.parse import quote, unquote, urlsplit
 from urllib.request import urlretrieve
 from zipfile import ZipFile
@@ -37,6 +39,7 @@ MODEL_PRESETS = {
     "NguyenToanLe/Age-Gender-Detection-YOLO / gender": "https://media.githubusercontent.com/media/NguyenToanLe/Age-Gender-Detection-YOLO/main/models/gender.pt",
     "DhanushSGowda/yolov8n-gender-classification": "hf://DhanushSGowda/yolov8n-gender-classification/best_Gender_classification.pt",
     "AdamCodd/yolo11n-face-age": "hf://AdamCodd/yolo11n-face-age/best.pt",
+    "RoyRud1902/yolo11n-text": "hf://RoyRud1902/yolo11n-text/best.pt",
     "leeyunjai/yolo11-ko-face-emotion-cls": "hf://leeyunjai/yolo11-ko-face-emotion-cls/yolo11x-face-emotion.pt",
     "MnLgt/yolo-human-parse": "hf://MnLgt/yolo-human-parse/yolo-human-parse-epoch-125.pt",
     "yolo26n-cls": "yolo26n-cls.pt",
@@ -71,6 +74,11 @@ class ScanOptions:
     model: str = MODEL_PRESETS["DhanushSGowda/yolov8n-gender-classification"]
     crop_model: str = ""
     scan_confidence: float = 0.25
+    batch: int = 1
+    quantize: int | None = None
+    compile: bool = False
+    imgsz: int | None = None
+    vid_stride: int = 1
     frame_percentage: float = 50
     recursive: bool = True
     include_videos: bool = True
@@ -257,12 +265,16 @@ def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, em
                 modified INTEGER NOT NULL, predictions TEXT NOT NULL, frame INTEGER,
                 PRIMARY KEY(path, signature))""")
             kwargs = {"verbose": True, "save": False, "conf": options.scan_confidence, "stream": True}
+            kwargs.update(batch=options.batch, quantize=options.quantize, compile=options.compile, vid_stride=options.vid_stride)
+            if options.imgsz is not None:
+                kwargs["imgsz"] = options.imgsz
             if options.device:
                 kwargs["device"] = options.device
             status = f"Scanning (0/{total})"
             emit("status", status)
             indexed = {}
             device_reported = False
+            scan_times = deque([perf_counter()], maxlen=31)
             inference = (crop_model if crop_model is not None else model).predict(source=str(options.source), **kwargs)
             for inference_result in inference:
                 if not device_reported:
@@ -299,7 +311,9 @@ def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, em
                 indexed[path] = MediaResult(path, None, None, predictions, None, False, None)
                 if first_result_for_path:
                     completed = len(indexed)
-                    emit("scan_progress", (completed, total, path.name))
+                    scan_times.append(perf_counter())
+                    rate = (len(scan_times) - 1) / (scan_times[-1] - scan_times[0])
+                    emit("scan_progress", (completed, total, path.name, rate))
                 if stop.is_set():
                     break
             database.commit()
