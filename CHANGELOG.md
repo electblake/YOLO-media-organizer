@@ -2,10 +2,17 @@
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-09-15
+
 ### Added
 
 - Live file totals, matched counts and percentages, and remaining files to move beside Open media folder.
 - Print individual scan failures and display the latest error and failure count while continuing with remaining files.
+
+### Changed
+
+- Use the white Ymo icon for the app window, shortcuts, and File Explorer integration, and the dark Ymo icon for the installer.
+- Rename Preview sorting to Start Media Scan and Sort media to Organize Files.
 
 ## [0.7.1] - 2026-09-15
 
