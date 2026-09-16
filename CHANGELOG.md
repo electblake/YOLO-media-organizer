@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-09-15
+
+### Added
+
+- Save native Ultralytics verbose output to a per-scan log and show it in an auto-scrolling app console.
+- Report the inference device selected by Ultralytics, including the CUDA device name, in the UI and scan log.
+- Require Ultralytics automatic device selection to detect CUDA in the test suite.
+
+### Changed
+
+- Pass the selected media folder to one native streaming Ultralytics prediction run and publish results when the run finishes.
+- Show total files, labels, files to move, move percentage, and file-level `Scanning (X/Y)` progress without counting video frames as files.
+- Install CUDA 13.0 PyTorch and torchvision by default on Windows and simplify the installer to one NVIDIA CUDA dependency path.
+
+### Removed
+
+- Remove the misleading matched count and the CPU/GPU dependency-group and installer selection paths.
+
 ## [0.7.2] - 2026-09-15
 
 ### Added
@@ -106,7 +124,10 @@
 - Model presets from Hugging Face, GitHub, and Ultralytics Platform.
 - Repeatable PyInstaller and Inno Setup build scripts with an executable launch check.
 
-[Unreleased]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.2...v0.7.3
+[0.7.2]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.0...v0.6.1
