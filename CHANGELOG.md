@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-09-16
+
+### Changed
+
+- Replace the project license with MIT and keep Ultralytics documentation links in the README.
+- Document YOLO versions for model presets.
+
 ### Removed
 
 - Remove the unused video position option and legacy snapshot extraction; folder scans use Ultralytics video stride.
