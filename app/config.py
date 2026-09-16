@@ -31,7 +31,6 @@ class AppState(BaseModel):
     save_crop: bool = False
     save_results: bool = False
     save_txt: bool = False
-    frame_percentage: float = 50
     device: str = ""
     videos: bool = True
     quarantine_video_failures: bool = False

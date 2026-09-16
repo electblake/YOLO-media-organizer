@@ -33,5 +33,3 @@ The installer is written to `dist/`.
 ## Disclaimer
 
 This project is not affiliated with Ultralytics or the [YOLO models](https://docs.ultralytics.com/models). For more information, see the [Ultralytics documentation](https://docs.ultralytics.com) and [Ultralytics website](https://www.ultralytics.com).
-
-YOLO is licensed under [AGPL-3.0 license](https://github.com/ultralytics/ultralytics/blob/main/LICENSE) so we use that [license here](LICENSE).

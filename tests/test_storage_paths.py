@@ -19,7 +19,8 @@ def test_model_storage_routes(tmp_path, monkeypatch):
     monkeypatch.setattr(scanner, "MODELS_DIR", models)
     monkeypatch.setattr(scanner, "HF_CACHE_DIR", hf_cache)
     settings = {}
-    monkeypatch.setattr(scanner.ultralytics, "settings", SimpleNamespace(update=lambda **kwargs: settings.update(kwargs)))
+    monkeypatch.setattr(scanner.ultralytics, "settings", settings)
+    monkeypatch.setenv("ULTRALYTICS_API_KEY", "test-platform-key")
     monkeypatch.setattr(scanner, "YOLO", lambda reference: Path(reference))
     monkeypatch.chdir(tmp_path)
     platform_calls = []
@@ -38,6 +39,7 @@ def test_model_storage_routes(tmp_path, monkeypatch):
     assert all(Path(path).is_relative_to(config) for path in settings.values())
 
     hf_calls = []
+    monkeypatch.setattr(scanner, "get_token", lambda: "test-hf-token")
 
     def download(**kwargs):
         hf_calls.append(kwargs)
@@ -90,6 +92,54 @@ def test_model_storage_routes(tmp_path, monkeypatch):
     assert url_calls == [url, archive_url]
 
 
+@pytest.mark.parametrize("reference", ["ul://owner/project/model", "https://platform.ultralytics.com/owner/project/model"])
+@pytest.mark.parametrize("key_source", ["missing", "environment", "ultralytics_settings"])
+def test_platform_model_requires_api_key(tmp_path, monkeypatch, reference, key_source):
+    monkeypatch.delenv("ULTRALYTICS_API_KEY", raising=False)
+    settings = {}
+    monkeypatch.setattr(scanner.ultralytics, "settings", settings)
+    if key_source == "environment":
+        monkeypatch.setenv("ULTRALYTICS_API_KEY", "test-platform-key")
+    elif key_source == "ultralytics_settings":
+        settings["api_key"] = "test-platform-key"
+    calls = []
+
+    def download(reference, download_dir):
+        calls.append(reference)
+        return str(tmp_path / "model.pt")
+
+    monkeypatch.setattr(scanner, "check_file", download)
+    monkeypatch.setattr(scanner, "YOLO", lambda reference: Path(reference))
+    if key_source == "missing":
+        with pytest.raises(ValueError, match="Set ULTRALYTICS_API_KEY in Settings or your environment"):
+            scanner.load_model(reference)
+        assert calls == []
+    else:
+        assert scanner.load_model(reference) == tmp_path / "model.pt"
+        assert calls == ["ul://owner/project/model"]
+
+
+@pytest.mark.parametrize("token", [None, "test-hf-token"])
+def test_hf_model_requires_token(tmp_path, monkeypatch, token):
+    monkeypatch.setattr(scanner.ultralytics, "settings", {})
+    monkeypatch.setattr(scanner, "get_token", lambda: token)
+    calls = []
+
+    def download(**kwargs):
+        calls.append(kwargs)
+        return str(tmp_path / "model.pt")
+
+    monkeypatch.setattr(scanner, "hf_hub_download", download)
+    monkeypatch.setattr(scanner, "YOLO", lambda reference: Path(reference))
+    if token is None:
+        with pytest.raises(ValueError, match="Set HF_TOKEN in Settings or your environment"):
+            scanner.load_model("hf://owner/repo/model.pt")
+        assert calls == []
+    else:
+        assert scanner.load_model("hf://owner/repo/model.pt") == tmp_path / "model.pt"
+        assert len(calls) == 1
+
+
 def test_dependency_caches_use_config_root_on_startup():
     assert CONFIG_DIR == dirs.user_config_path
     script = """
@@ -110,6 +160,7 @@ print(json.dumps([str(CONFIG_DIR), str(constants.HF_HUB_CACHE), str(constants.HF
 
 def test_hf_progress_without_console(tmp_path, monkeypatch):
     events = []
+    monkeypatch.setattr(scanner, "get_token", lambda: "test-hf-token")
     monkeypatch.setattr(sys, "stderr", None)
     monkeypatch.setattr(scanner.ultralytics, "settings", SimpleNamespace(update=lambda **kwargs: None))
     monkeypatch.setattr(scanner, "YOLO", lambda reference: SimpleNamespace(names={0: "person"}))

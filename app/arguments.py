@@ -7,7 +7,7 @@ def build_parser():
     parser = argparse.ArgumentParser(prog="yolo-media-organizer", argument_default=argparse.SUPPRESS)
     for name in ("source", "model", "crop-model", "device", "window-geometry", "ultralytics-api-key", "huggingface-api-key"):
         parser.add_argument(f"--{name}")
-    for name in ("scan-confidence", "move-confidence", "frame-percentage"):
+    for name in ("scan-confidence", "move-confidence"):
         parser.add_argument(f"--{name}", type=float)
     for name in ("min-predictions", "max-predictions"):
         parser.add_argument(f"--{name}", type=int)

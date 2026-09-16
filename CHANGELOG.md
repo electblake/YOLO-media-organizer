@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Removed
+
+- Remove the unused video position option and legacy snapshot extraction; folder scans use Ultralytics video stride.
+
+### Fixed
+
+- Show actionable missing-credential errors before downloading Ultralytics Platform or Hugging Face models.
+
 ## [0.8.1] - 2026-09-16
 
 ### Added

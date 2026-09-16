@@ -20,8 +20,8 @@ from zipfile import ZipFile
 import cv2
 import torch
 import ultralytics
-from huggingface_hub import hf_hub_download
-from PIL import Image, ImageOps
+from huggingface_hub import get_token, hf_hub_download
+from PIL import Image
 from tqdm import tqdm
 from ultralytics import YOLO
 from ultralytics.data.utils import IMG_FORMATS, VID_FORMATS
@@ -30,7 +30,6 @@ from ultralytics.utils.checks import check_file
 
 from app.config import CONFIG_DIR, HF_CACHE_DIR, MODELS_DIR
 
-VIDEO_EXTENSIONS = {".mp4", ".avi", ".wmv", ".mpeg", ".mpg", ".mov", ".m4v", ".mkv", ".webm"}
 # TODO: convert MODEL_PRESETS to pydantic models saved in one models.json app config,
 # with the current values committed as the default JSON.
 MODEL_PRESETS = {
@@ -84,7 +83,6 @@ class ScanOptions:
     save_crop: bool = False
     save: bool = False
     save_txt: bool = False
-    frame_percentage: float = 50
     include_videos: bool = True
     quarantine_video_failures: bool = False
     quarantine_folder: str = "quarantine"
@@ -112,12 +110,22 @@ def load_model(reference: str, emit=None):
         datasets_dir=str(CONFIG_DIR / "datasets"),
     )
     if reference.startswith(("ul://", "https://platform.ultralytics.com/")):
+        if not (os.environ.get("ULTRALYTICS_API_KEY") or ultralytics.settings.get("api_key")):
+            raise ValueError(
+                "An Ultralytics API key is required to download an Ultralytics Platform model. "
+                "Set ULTRALYTICS_API_KEY in Settings or your environment, then try again."
+            )
         if emit is not None:
             emit("status", "Checking cache / downloading Ultralytics model")
         if reference.startswith("https://"):
             reference = "ul://" + urlsplit(reference).path.strip("/")
         reference = check_file(reference, download_dir=MODELS_DIR / "platform")
     elif reference.startswith("hf://"):
+        if not get_token():
+            raise ValueError(
+                "A Hugging Face token is required to download a Hugging Face model. "
+                "Set HF_TOKEN in Settings or your environment, or log in with Hugging Face, then try again."
+            )
         owner, repo, filename = reference[5:].split("/", 2)
         download_options = {}
         if emit is not None:
@@ -172,18 +180,6 @@ def load_model(reference: str, emit=None):
     if emit is not None:
         emit("status", "Reading model classes")
     return model
-
-
-def media_image(path: Path, frame_percentage: float):
-    if path.suffix.lower() in VIDEO_EXTENSIONS:
-        video = cv2.VideoCapture(str(path), cv2.CAP_FFMPEG)
-        frame_number = round((int(video.get(cv2.CAP_PROP_FRAME_COUNT)) - 1) * frame_percentage / 100)
-        video.set(cv2.CAP_PROP_POS_FRAMES, frame_number)
-        _, frame = video.read()
-        video.release()
-        return Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)), frame_number
-    with Image.open(path) as image:
-        return ImageOps.exif_transpose(image).convert("RGB"), None
 
 
 def result_labels(result):

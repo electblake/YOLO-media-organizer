@@ -66,7 +66,6 @@ class MainView(ttk.Frame):
         self.save_results = tk.BooleanVar(self, value=values.save_results)
         self.run_path = None
         self.save_txt = tk.BooleanVar(self, value=values.save_txt)
-        self.frame_percentage = tk.DoubleVar(self, value=values.frame_percentage)
         self.device = tk.StringVar(self, value=values.device)
         self.videos = tk.BooleanVar(self, value=values.videos)
         self.quarantine_video_failures = tk.BooleanVar(self, value=values.quarantine_video_failures)
@@ -200,10 +199,7 @@ class MainView(ttk.Frame):
 
         controls = ttk.Frame(form)
         controls.grid(row=5, column=0, columnspan=3, sticky="ew", pady=6)
-        ttk.Label(controls, text="Video position %").grid(row=0, column=0, sticky="w")
-        frame = ttk.Spinbox(controls, from_=0, to=100, increment=1, textvariable=self.frame_percentage, width=6, state="readonly")
-        frame.grid(row=0, column=1, sticky="w", padx=8, pady=4)
-        self.inputs.extend([scan_threshold, frame])
+        self.inputs.append(scan_threshold)
         for title, variable, column in [("Batch size", self.batch, 0), ("Video stride", self.vid_stride, 2)]:
             ttk.Label(controls, text=title).grid(row=1, column=column, sticky="w")
             spinbox = ttk.Spinbox(controls, from_=1, to=2147483647, textvariable=variable, width=6)
@@ -411,7 +407,7 @@ class MainView(ttk.Frame):
     def current_state(self):
         values = {name: getattr(self, name).get() for name in (
             "source", "model", "crop_model", "scan_confidence", "move_confidence", "min_predictions",
-            "max_predictions", "frame_percentage", "device", "videos",
+            "max_predictions", "device", "videos",
             "batch", "precision", "compile", "imgsz", "vid_stride", "stream_buffer", "stream",
             "save_results", "save_crop", "save_txt",
             "quarantine_video_failures", "quarantine_folder",
@@ -433,7 +429,7 @@ class MainView(ttk.Frame):
         self.settings.reset_state()
         values = self.settings.values
         for name in ("source", "model", "crop_model", "scan_confidence", "move_confidence", "min_predictions",
-                     "max_predictions", "frame_percentage", "device", "videos",
+                     "max_predictions", "device", "videos",
                      "batch", "precision", "compile", "imgsz", "vid_stride", "stream_buffer", "stream",
                      "save_results", "save_crop", "save_txt",
                      "quarantine_video_failures", "quarantine_folder"):
@@ -683,7 +679,7 @@ class MainView(ttk.Frame):
             stream_buffer=self.stream_buffer.get(),
             stream=self.stream.get(),
             save=self.save_results.get(), save_crop=self.save_crop.get(), save_txt=self.save_txt.get(),
-            frame_percentage=self.frame_percentage.get(), device=self.device.get(),
+            device=self.device.get(),
             include_videos=self.videos.get(),
             quarantine_video_failures=self.quarantine_video_failures.get(), quarantine_folder=self.quarantine_folder.get(),
         )

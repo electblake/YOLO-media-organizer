@@ -5,7 +5,6 @@ from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
 
-import cv2
 import numpy as np
 import pytest
 import torch
@@ -49,20 +48,6 @@ def test_crop_detector_uses_default_predict_pipeline(tmp_path):
     assert calls[0][1] == {"verbose": False, "save": False, "conf": 0.25}
 
 
-def test_video_snapshot_percentage_and_rgb(tmp_path):
-    path = tmp_path / "clip.avi"
-    video = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), 10, (32, 32))
-    for value in range(11):
-        video.write(np.full((32, 32, 3), (value * 20, 0, 0), dtype=np.uint8))
-    video.release()
-    image, frame = scanner.media_image(path, 50)
-    assert frame == 5
-    assert image.mode == "RGB"
-    assert abs(image.getpixel((10, 10))[2] - 100) < 5
-    _, end = scanner.media_image(path, 100)
-    assert end == 10
-
-
 def test_index_reuse_and_invalidation(tmp_path, monkeypatch):
     source = tmp_path / "source"
     source.mkdir()
@@ -94,9 +79,8 @@ def test_index_reuse_and_invalidation(tmp_path, monkeypatch):
     assert not run().cached
     weights.write_bytes(b"new weights")
     assert not run().cached
-    assert not run(replace(options, frame_percentage=75)).cached
     assert not run(replace(options, scan_confidence=0.1)).cached
-    assert len(calls) == 6
+    assert len(calls) == 5
 
 
 @pytest.mark.parametrize("count", [18, 60])
