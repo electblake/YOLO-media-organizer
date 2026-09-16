@@ -53,7 +53,7 @@ class MainView(ttk.Frame):
         self.recursive = tk.BooleanVar(self, value=values.recursive)
         self.videos = tk.BooleanVar(self, value=values.videos)
         self.status = tk.StringVar(self, value="Choose a media folder. Destinations are model-label folders inside it.")
-        self.media_stats = tk.StringVar(self, value="0 files · 0 matched (0%) · 0 to move")
+        self.media_stats = tk.StringVar(self, value="0 files · 0 labels · 0 to move (0%)")
         self.scan_error = tk.StringVar(self)
         self.inputs = []
 
@@ -395,11 +395,9 @@ class MainView(ttk.Frame):
         planned = {result.source: result for result in self.move_plan}
         selection = self.tree.selection()
         self.original_rows = {"": []}
-        matched = 0
         for result in self.results:
             predictions = [(index, prediction) for index, prediction in enumerate(result.predictions)
                            if prediction["confidence"] >= self.move_confidence.get()]
-            matched += bool(predictions)
             counts = Counter(prediction["label"] for _, prediction in predictions)
             row = str(result.source)
             self.original_rows[""].append(row)
@@ -425,8 +423,8 @@ class MainView(ttk.Frame):
                 ))
         self.sort_table()
         self.tree.selection_set([row for row in selection if self.tree.exists(row)])
-        percentage = matched / self.total_media * 100 if self.total_media else 0
-        self.media_stats.set(f"{self.total_media} files · {matched} matched ({percentage:.0f}%) · {len(self.move_plan)} to move")
+        percentage = len(self.move_plan) / self.total_media * 100 if self.total_media else 0
+        self.media_stats.set(f"{self.total_media} files · {len(visible_labels)} labels · {len(self.move_plan)} to move ({percentage:.0f}%)")
         self.move_button.state(["!disabled"] if self.results and not (self.busy and self.operation in {"scan", "classes"}) else ["disabled"])
 
     def filter_labels(self, *_):
@@ -588,7 +586,7 @@ class MainView(ttk.Frame):
         self.total_media = 0
         self.failed_files = 0
         self.scan_error.set("")
-        self.media_stats.set("0 files · 0 matched (0%) · 0 to move")
+        self.media_stats.set("0 files · 0 labels · 0 to move (0%)")
         for check in self.label_checks.values():
             check.destroy()
         self.label_checks.clear()

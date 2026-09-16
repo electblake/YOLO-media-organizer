@@ -244,9 +244,10 @@ def scan(options: ScanOptions, index_path: Path, stop: Event, emit):
         label_folders = {options.source / label_folder(name) for name in model.names.values()}
         files = list(discover(options, label_folders))
         emit("total", len(files))
-        for path in files:
+        for index, path in enumerate(files, start=1):
             if stop.is_set():
                 break
+            emit("status", f"Scanning ({index}/{len(files)}) {path.name}")
             try:
                 stat = path.stat()
             except OSError as error:
@@ -261,7 +262,6 @@ def scan(options: ScanOptions, index_path: Path, stop: Event, emit):
             if cached is not None:
                 predictions, frame_number = json.loads(cached[0]), cached[1]
             else:
-                emit("status", f"Scanning {path.name}")
                 try:
                     image, frame_number = media_image(path, options.frame_percentage)
                     predictions = predict_image(model, crop_model, image, options)

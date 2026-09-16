@@ -60,12 +60,12 @@ def test_checked_labels_and_move_confidence_do_not_repeat_inference(tmp_path, mo
             break
         time.sleep(0.01)
     assert view.busy
-    assert view.media_stats.get() == "2 files · 1 matched (50%) · 0 to move"
+    assert view.media_stats.get() == "2 files · 2 labels · 0 to move (0%)"
     assert view.label_checks["label-A"].instate(["!disabled"])
     view.label_checks["label-A"].invoke()
     assert view.label_vars["label-A"].get()
     assert len(view.move_plan) == 1
-    assert view.media_stats.get() == "2 files · 1 matched (50%) · 1 to move"
+    assert view.media_stats.get() == "2 files · 2 labels · 1 to move (50%)"
     assert view.move_button.instate(["disabled"])
     continue_scan.set()
     finish()
@@ -76,7 +76,7 @@ def test_checked_labels_and_move_confidence_do_not_repeat_inference(tmp_path, mo
     assert set(view.label_vars) == {"label-A", "label-B"}
     assert not any(variable.get() for variable in view.label_vars.values())
     assert view.move_plan == []
-    assert view.media_stats.get() == "2 files · 2 matched (100%) · 0 to move"
+    assert view.media_stats.get() == "2 files · 2 labels · 0 to move (0%)"
     assert view.min_predictions.get() == 1
     assert view.max_predictions.get() == -1
     assert float(view.min_count.cget("from")) == 1
@@ -106,7 +106,7 @@ def test_checked_labels_and_move_confidence_do_not_repeat_inference(tmp_path, mo
     assert view.move_plan[0].label == "label-B"
     view.move_confidence.set(0.7)
     assert [result.source.name for result in view.move_plan] == ["b.png"]
-    assert view.media_stats.get() == "2 files · 1 matched (50%) · 1 to move"
+    assert view.media_stats.get() == "2 files · 2 labels · 1 to move (50%)"
     assert len(view.tree.get_children(str(source / "a.png"))) == 0
     assert len(view.results[0].predictions) == 2
     view.move_confidence.set(0.3)
@@ -117,7 +117,7 @@ def test_checked_labels_and_move_confidence_do_not_repeat_inference(tmp_path, mo
     assert view.move_button.instate(["!disabled"])
 
     view.start_scan()
-    assert view.media_stats.get() == "0 files · 0 matched (0%) · 0 to move"
+    assert view.media_stats.get() == "0 files · 0 labels · 0 to move (0%)"
     finish()
     assert len(calls) == 4
     assert all(kwargs["conf"] == 0.15 for kwargs in calls[2:])
@@ -129,10 +129,10 @@ def test_checked_labels_and_move_confidence_do_not_repeat_inference(tmp_path, mo
     assert (source / "a.png").exists()
     assert not (source / "b.png").exists()
     assert (source / "label-B" / "b.png").exists()
-    assert view.media_stats.get() == "2 files · 1 matched (50%) · 0 to move"
+    assert view.media_stats.get() == "2 files · 2 labels · 0 to move (0%)"
     view.move_confidence.set(0.3)
     assert [result.source.name for result in view.move_plan] == ["a.png"]
-    assert view.media_stats.get() == "2 files · 2 matched (100%) · 1 to move"
+    assert view.media_stats.get() == "2 files · 2 labels · 1 to move (50%)"
     assert view.result_paths[str(source / "b.png")] == source / "label-B" / "b.png"
     assert len(calls) == 4
     view.close()
