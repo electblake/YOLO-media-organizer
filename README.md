@@ -4,9 +4,10 @@
 
 <strong>YOLOmo</strong> is a desktop app for sorting images and videos using Ultralytics YOLO models.
 
-## Install
+## Installer
 
-Download the [CPU Windows installer](https://github.com/electblake/YOLO-media-organizer/releases/download/v0.6.2/YOLO-media-organizer-0.6.2-windows-amd64-cpu-Setup.exe) or [CUDA 13.0 Windows installer](https://github.com/electblake/YOLO-media-organizer/releases/download/v0.6.2/YOLO-media-organizer-0.6.2-windows-amd64-cu130-Setup.exe), run it, then open the app from the Start menu.
+- [Windows CPU installer](https://github.com/electblake/YOLO-media-organizer/releases/download/v0.6.2/YOLO-media-organizer-0.6.2-windows-amd64-cpu-Setup.exe)
+- [Windows GPU installer](https://github.com/electblake/YOLO-media-organizer/releases/download/v0.6.2/YOLO-media-organizer-0.6.2-windows-amd64-cu130-Setup.exe) (runs faster but requires CUDA 13.0 NVIDIA Graphics)
 
 ## Run from source
 
