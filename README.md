@@ -15,23 +15,16 @@ uv sync
 uv run yolo-media-organizer
 ```
 
-## Build a wheel
-
-With uv and PowerShell 7 installed, run:
+## Build Pip Wheel
 
 ```powershell
 ./scripts/build-wheel.ps1
 ```
 
-The wheel is written to `dist/` using the version in `pyproject.toml`.
-To install and run it in a Python 3.12+ environment with Tkinter available:
-
-```powershell
-python -m pip install ./dist/yolo_media_organizer-0.6.1-py3-none-any.whl
+```sh
+pip install ./dist/yolo_media_organizer-0.6.1-py3-none-any.whl
 yolo-media-organizer
 ```
-
-Dependencies are installed separately by pip; they are not bundled in the wheel.
 
 
 - [Models](Models.md)
