@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-09-16
+
 ### Added
 
 - Configure inference batch size, precision, compilation, image size, and video stride; save and reset these options with the app configuration.
@@ -12,7 +14,6 @@
 - Add the RoyRud1902/yolo11n-text model preset.
 - Configure result streaming and live-stream buffering, with hover hints for inference and output settings.
 - Save annotated results, object crops, and text labels in a persistent run directory for each media folder; open it with Open run results.
-- Preview saved crops for a label in a scrollable gallery when hovering over a prediction's label.
 - Optionally move videos that fail to open into a configurable quarantine subfolder and re-run the scan.
 
 ### Changed
@@ -31,6 +32,8 @@
 
 - Remove recursive-scan controls and the `--recursive` / `--no-recursive` arguments; scans use the selected folder's immediate media files.
 - Stop tracking `uv.lock` in the repository.
+- Remove image hover previews and preview thumbnail generation from results and label filters.
+- Remove pytest temporary artifacts from Git history and ignore pytest temporary folders.
 
 ## [0.7.3] - 2026-09-15
 
