@@ -188,9 +188,9 @@ class MainView(ttk.Frame):
 
         actions = ttk.Frame(self)
         actions.grid(row=2, column=0, sticky="ew", pady=(12, 0))
-        self.scan_button = ttk.Button(actions, text="Preview sorting", command=self.start_scan)
+        self.scan_button = ttk.Button(actions, text="Start Media Scan", command=self.start_scan)
         self.scan_button.pack(side="left")
-        self.move_button = ttk.Button(actions, text="Sort media", command=self.start_move, state="disabled")
+        self.move_button = ttk.Button(actions, text="Organize Files", command=self.start_move, state="disabled")
         self.move_button.pack(side="left", padx=8)
         self.stop_button = ttk.Button(actions, text="Stop after current file", command=self.stop.set, state="disabled")
         self.stop_button.pack(side="left")
