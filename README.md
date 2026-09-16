@@ -6,9 +6,9 @@
 
 ## Installer
 
-[Download the Windows installer](https://github.com/electblake/YOLO-media-organizer/releases/download/v0.7.0/YOLO-media-organizer-0.7.0-windows-amd64-Setup.exe).
+[Download the latest installer (Windows)](https://github.com/electblake/YOLO-media-organizer/releases)
 
-Choose CPU or NVIDIA GPU during setup. Internet access is required to download Python and dependencies. GPU mode requires an NVIDIA driver compatible with CUDA 13.0.
+Choose CPU or NVIDIA GPU during setup. Installer will download Python and dependencies. GPU mode requires an NVIDIA driver compatible with CUDA 13.0.
 
 ## Run from source
 
