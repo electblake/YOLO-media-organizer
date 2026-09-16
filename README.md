@@ -13,11 +13,9 @@ Choose CPU or NVIDIA GPU during setup. Installer will download Python and depend
 ## Run from source
 
 ```powershell
-uv sync --locked --group cpu
-uv run --no-sync yolo-media-organizer
+uv sync --group cpu/--group gpu
+uv run yolo-media-organizer
 ```
-
-Use `--group gpu` for NVIDIA CUDA 13.0.
 
 ## Build the Windows installer
 

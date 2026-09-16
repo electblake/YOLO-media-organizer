@@ -41,3 +41,4 @@ coverage.xml
 .DS_Store
 Thumbs.db
 Desktop.ini
+uv.lock
