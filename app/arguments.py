@@ -11,8 +11,7 @@ def build_parser():
         parser.add_argument(f"--{name}", type=float)
     for name in ("min-predictions", "max-predictions"):
         parser.add_argument(f"--{name}", type=int)
-    for name in ("recursive", "videos"):
-        parser.add_argument(f"--{name}", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--videos", action=argparse.BooleanOptionalAction)
     parser.add_argument("--selected-labels", nargs="*")
     parser.add_argument("--active-tab", choices=("Scan", "Models", "Settings", "Extras"))
     return parser

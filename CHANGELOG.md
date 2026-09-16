@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-16
+
+### Added
+
+- Configure inference batch size, precision, compilation, image size, and video stride; save and reset these options with the app configuration.
+- Show scan speed and estimated remaining time.
+- Copy, download, and open scan logs or their containing folder from the console controls.
+- Include scan options, runtime versions, model details, inference arguments, and completion details in scan logs.
+- Show the app version in the window title and heading, with a project website button.
+- Add the RoyRud1902/yolo11n-text model preset.
+
+### Changed
+
+- Rename the Sort Media tab to Organize and keep scan controls above the resizable label area.
+- Report the number of files moved, or indicate when no files were moved.
+
+### Fixed
+
+- Display scan failures and their tracebacks in the console and log while preserving the original failure.
+- Disable file organization while busy or when no files remain in the move plan.
+
 ## [0.7.3] - 2026-09-15
 
 ### Added

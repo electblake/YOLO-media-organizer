@@ -20,6 +20,7 @@ from app.config import CONFIG_DIR, AppState, Settings
 from app.extras import ExtrasTab
 from app.organizer import move_media, plan_moves
 from app.scanner import MODEL_PRESETS, ScanOptions, load_model, scan
+from app.tooltips import ToolTip
 
 
 class MainView(ttk.Frame):
@@ -41,6 +42,9 @@ class MainView(ttk.Frame):
         self.busy = False
         self.operation = ""
         self.result_paths = {}
+        self.result_crops = {}
+        self.crop_preview = None
+        self.crop_preview_row = ""
         self.sort_columns = dict(values.sort_columns)
         self.column_titles = {}
         self.original_rows = {"": []}
@@ -59,10 +63,17 @@ class MainView(ttk.Frame):
         self.compile = tk.BooleanVar(self, value=values.compile)
         self.imgsz = tk.StringVar(self, value=values.imgsz)
         self.vid_stride = tk.IntVar(self, value=values.vid_stride)
+        self.stream_buffer = tk.BooleanVar(self, value=values.stream_buffer)
+        self.stream = tk.BooleanVar(self, value=values.stream)
+        self.save_crop = tk.BooleanVar(self, value=values.save_crop)
+        self.save_results = tk.BooleanVar(self, value=values.save_results)
+        self.run_path = None
+        self.save_txt = tk.BooleanVar(self, value=values.save_txt)
         self.frame_percentage = tk.DoubleVar(self, value=values.frame_percentage)
         self.device = tk.StringVar(self, value=values.device)
-        self.recursive = tk.BooleanVar(self, value=values.recursive)
         self.videos = tk.BooleanVar(self, value=values.videos)
+        self.quarantine_video_failures = tk.BooleanVar(self, value=values.quarantine_video_failures)
+        self.quarantine_folder = tk.StringVar(self, value=values.quarantine_folder)
         self.status = tk.StringVar(self, value="Choose a media folder. Destinations are model-label folders inside it.")
         self.scan_speed = tk.StringVar(self)
         self.media_stats = tk.StringVar(self, value="0 files · 0 labels · 0 to move (0%)")
@@ -91,7 +102,7 @@ class MainView(ttk.Frame):
         self.main_panes.add(self.tabs, weight=0)
         self.scan_tab = ttk.Frame(self.tabs)
         self.scan_tab.columnconfigure(0, weight=1)
-        self.scan_tab.rowconfigure(1, weight=1)
+        self.scan_tab.rowconfigure(2, weight=1)
         self.models_tab = ttk.Frame(self.tabs, padding=12)
         self.models_tab.columnconfigure(0, weight=1)
         self.models_tab.rowconfigure(2, weight=1)
@@ -128,8 +139,9 @@ class MainView(ttk.Frame):
         self.save_settings_button.grid(row=12, column=0, sticky="w")
 
         form = ttk.Frame(self.scan_tab, padding=12)
-        form.grid(row=0, column=0, sticky="ew")
+        form.grid(row=1, column=0, sticky="ew")
         form.columnconfigure(1, weight=1)
+        self.cfg_hints = {}
         for row, (title, variable, folder) in enumerate([
             ("Media folder", self.source, True),
             ("Crop detector (optional)", self.crop_model, False),
@@ -140,6 +152,11 @@ class MainView(ttk.Frame):
             button = ttk.Button(form, text="Browse…", command=lambda v=variable, f=folder: self.browse(v, f))
             button.grid(row=row, column=2)
             self.inputs.extend([entry, button])
+            if variable is self.source:
+                self.cfg_hints["source"] = ToolTip(
+                    (entry, form.grid_slaves(row=row, column=0)[0]),
+                    "source: Input media for prediction. This app uses the selected folder.",
+                )
         self.inputs[0].focus_set()
 
         model_section = ttk.LabelFrame(self.models_tab, text="YOLO Classify & Detect", padding=12)
@@ -197,6 +214,12 @@ class MainView(ttk.Frame):
             spinbox = ttk.Spinbox(controls, from_=1, to=2147483647, textvariable=variable, width=6)
             spinbox.grid(row=1, column=column + 1, sticky="w", padx=8, pady=4)
             self.inputs.append(spinbox)
+            name, description = (
+                ("batch", "Images or frames processed together. Larger batches can improve throughput for folders and videos.")
+                if variable is self.batch else
+                ("vid_stride", "Sample every Nth video frame. 1 processes every frame; larger values trade temporal detail for speed.")
+            )
+            self.cfg_hints[name] = ToolTip((spinbox, controls.grid_slaves(row=1, column=column)[0]), f"{name}: {description}")
         ttk.Label(controls, text="Precision").grid(row=2, column=0, sticky="w")
         precision = ttk.Combobox(controls, textvariable=self.precision, values=("Default", "FP32", "FP16"), width=8, state="readonly")
         precision.grid(row=2, column=1, sticky="w", padx=8, pady=4)
@@ -204,14 +227,59 @@ class MainView(ttk.Frame):
         imgsz = ttk.Combobox(controls, textvariable=self.imgsz, values=("Default", "224", "320", "640", "1280"), width=8)
         imgsz.grid(row=2, column=3, sticky="w", padx=8, pady=4)
         compile_toggle = ttk.Checkbutton(controls, text="Compile", variable=self.compile)
-        compile_toggle.grid(row=3, column=0, columnspan=2, sticky="w", pady=4)
-        self.inputs.extend([precision, imgsz, compile_toggle])
+        compile_toggle.grid(row=3, column=0, sticky="w", pady=4)
+        save = ttk.Checkbutton(controls, text="Save results", variable=self.save_results)
+        save.grid(row=3, column=1, sticky="w", pady=4)
+        self.inputs.append(save)
+        stream_buffer = ttk.Checkbutton(controls, text="Stream buffer (live streams)", variable=self.stream_buffer)
+        stream_buffer.grid(row=3, column=2, columnspan=2, sticky="w", pady=4)
+        self.inputs.extend([precision, imgsz, compile_toggle, stream_buffer])
+        stream = ttk.Checkbutton(controls, text="Stream results", variable=self.stream)
+        stream.grid(row=4, column=0, columnspan=2, sticky="w", pady=4)
+        self.inputs.append(stream)
+        save_options = ttk.Frame(controls)
+        save_options.grid(row=4, column=2, columnspan=2, sticky="w", pady=4)
+        save_crop = ttk.Checkbutton(save_options, text="Save crops", variable=self.save_crop)
+        save_crop.pack(side="left")
+        save_txt = ttk.Checkbutton(save_options, text="Save text labels", variable=self.save_txt)
+        save_txt.pack(side="left", padx=(8, 0))
+        self.inputs.extend([save_crop, save_txt])
+        # Descriptions adapted from https://docs.ultralytics.com/usage/cfg/#predict-settings.
+        for name, widgets, description in (
+            ("save", (save,), "Save annotated images and videos in the run directory."),
+            ("save_crop", (save_crop,), "Write detected object crops into class folders within the run directory. Unsupported for classification and OBB."),
+            ("save_txt", (save_txt,), "Write predictions as text label files. Rescans append to existing files."),
+            ("quantize", (precision, controls.grid_slaves(row=2, column=0)[0]),
+             "FP16 or FP32 inference precision for PyTorch/TorchScript. Other model formats use their supported runtime precision."),
+            ("imgsz", (imgsz, controls.grid_slaves(row=2, column=2)[0]),
+             "Target input dimensions. A number specifies a square target; rectangular padding may produce a smaller actual input."),
+            ("compile", (compile_toggle,),
+             "Enable PyTorch graph compilation using the inductor backend and default mode. Unsupported compilation warns and uses eager execution."),
+            ("stream_buffer", (stream_buffer,),
+             "For live inputs: checked queues frames; unchecked drops older frames. Queuing increases delay when inference is slower than capture. "
+             "Does not affect folder/video-file scans."),
+            ("stream", (stream,),
+             "Return results incrementally to reduce memory use. Unchecked collects all results in memory before returning."),
+        ):
+            self.cfg_hints[name] = ToolTip(widgets, f"{name}: {description}")
         toggles = ttk.Frame(form)
         toggles.grid(row=6, column=0, columnspan=3, sticky="w")
-        for title, variable in [("Include subfolders", self.recursive), ("Include videos", self.videos)]:
-            toggle = ttk.Checkbutton(toggles, text=title, variable=variable)
-            toggle.pack(side="left", padx=(0, 18))
-            self.inputs.append(toggle)
+        toggle = ttk.Checkbutton(toggles, text="Include videos", variable=self.videos)
+        toggle.pack(side="left", padx=(0, 18))
+        self.inputs.append(toggle)
+
+        quarantine = ttk.Frame(form)
+        quarantine.grid(row=7, column=0, columnspan=3, sticky="ew", pady=(6, 0))
+        quarantine.columnconfigure(1, weight=1)
+        self.quarantine_toggle = ttk.Checkbutton(
+            quarantine, text="quarantine and re-run open video failures", variable=self.quarantine_video_failures,
+        )
+        self.quarantine_toggle.grid(row=0, column=0, sticky="w")
+        self.quarantine_entry = ttk.Entry(quarantine, textvariable=self.quarantine_folder, width=12)
+        self.quarantine_entry.grid(row=0, column=1, sticky="ew", padx=(8, 0))
+        self.inputs.extend([self.quarantine_toggle, self.quarantine_entry])
+        self.quarantine_video_failures.trace_add("write", self.update_quarantine_input)
+        self.update_quarantine_input()
 
         actions = ttk.Frame(self)
         actions.grid(row=2, column=0, sticky="ew", pady=(12, 0))
@@ -221,8 +289,12 @@ class MainView(ttk.Frame):
         self.move_button.pack(side="left", padx=8)
         self.stop_button = ttk.Button(actions, text="Stop after current file", command=self.stop.set, state="disabled")
         self.stop_button.pack(side="left")
-        config_actions = ttk.Frame(self)
-        config_actions.grid(row=3, column=0, sticky="ew", pady=(6, 0))
+        self.open_run_button = ttk.Button(
+            actions, text="Open run results", command=lambda: os.startfile(self.run_path), state="disabled",
+        )
+        self.open_run_button.pack(side="left", padx=(8, 0))
+        config_actions = ttk.Frame(self.scan_tab)
+        config_actions.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 0))
         self.save_config_button = ttk.Button(config_actions, text="Save config", command=self.save_config)
         self.save_config_button.pack(side="left", padx=(0, 4))
         self.reset_config_button = ttk.Button(config_actions, text="Reset config", command=self.reset_config)
@@ -234,7 +306,7 @@ class MainView(ttk.Frame):
         ttk.Label(actions, textvariable=self.inference_device).pack(side="right", padx=(8, 0))
 
         label_panel = ttk.LabelFrame(self.scan_tab, text="Organize Files", padding=8)
-        label_panel.grid(row=1, column=0, sticky="nsew")
+        label_panel.grid(row=2, column=0, sticky="nsew")
         label_panel.rowconfigure(2, weight=1)
         label_panel.columnconfigure(0, weight=1)
         filters = ttk.Frame(label_panel)
@@ -300,6 +372,10 @@ class MainView(ttk.Frame):
         self.result_menu.add_command(label="Open file", command=self.open_result_file)
         self.result_menu.add_command(label="Open path", command=self.open_result_path)
         self.tree.bind("<Button-3>", self.show_result_menu)
+        self.tree.bind("<Motion>", self.show_crop_preview, add="+")
+        self.tree.bind("<Leave>", self.leave_crop_preview, add="+")
+        for event in ("<ButtonPress>", "<MouseWheel>", "<Unmap>", "<Destroy>"):
+            self.tree.bind(event, self.hide_crop_preview, add="+")
         footer = ttk.Frame(self)
         footer.grid(row=4, column=0, sticky="ew", pady=(12, 0))
         footer.columnconfigure(0, weight=1)
@@ -346,8 +422,10 @@ class MainView(ttk.Frame):
     def current_state(self):
         values = {name: getattr(self, name).get() for name in (
             "source", "model", "crop_model", "scan_confidence", "move_confidence", "min_predictions",
-            "max_predictions", "frame_percentage", "device", "recursive", "videos",
-            "batch", "precision", "compile", "imgsz", "vid_stride",
+            "max_predictions", "frame_percentage", "device", "videos",
+            "batch", "precision", "compile", "imgsz", "vid_stride", "stream_buffer", "stream",
+            "save_results", "save_crop", "save_txt",
+            "quarantine_video_failures", "quarantine_folder",
         )}
         return AppState(
             **values, selected_labels=self.settings.values.selected_labels,
@@ -366,8 +444,10 @@ class MainView(ttk.Frame):
         self.settings.reset_state()
         values = self.settings.values
         for name in ("source", "model", "crop_model", "scan_confidence", "move_confidence", "min_predictions",
-                     "max_predictions", "frame_percentage", "device", "recursive", "videos",
-                     "batch", "precision", "compile", "imgsz", "vid_stride"):
+                     "max_predictions", "frame_percentage", "device", "videos",
+                     "batch", "precision", "compile", "imgsz", "vid_stride", "stream_buffer", "stream",
+                     "save_results", "save_crop", "save_txt",
+                     "quarantine_video_failures", "quarantine_folder"):
             getattr(self, name).set(getattr(values, name))
         for label, variable in self.label_vars.items():
             variable.set(label in values.selected_labels)
@@ -407,6 +487,8 @@ class MainView(ttk.Frame):
             self.tree.item(row, open=expanded)
 
     def refresh_results(self, *_):
+        self.hide_crop_preview()
+        self.result_crops.clear()
         visible_labels = sorted({prediction["label"] for result in self.results for prediction in result.predictions})
         for label in visible_labels:
             if label not in self.label_vars:
@@ -445,6 +527,8 @@ class MainView(ttk.Frame):
             for index, prediction in predictions:
                 child = f"{row}::match:{index}"
                 self.result_paths[child] = self.result_paths[row]
+                if result.run_path is not None:
+                    self.result_crops[child] = result.run_path / "crops" / prediction["label"]
                 self.original_rows[row].append(child)
                 self.tree.insert(row, "end", iid=child, values=(
                     "", prediction["label"], counts[prediction["label"]], prediction["confidence"], "",
@@ -454,6 +538,65 @@ class MainView(ttk.Frame):
         percentage = len(self.move_plan) / self.total_media * 100 if self.total_media else 0
         self.media_stats.set(f"{self.total_media} files · {len(visible_labels)} labels · {len(self.move_plan)} to move ({percentage:.0f}%)")
         self.move_button.state(["!disabled"] if self.move_plan and not self.busy else ["disabled"])
+
+    def show_crop_preview(self, event):
+        row = self.tree.identify_row(event.y)
+        if self.tree.identify_column(event.x) != "#2" or row not in self.result_crops:
+            self.hide_crop_preview()
+            return
+        if row == self.crop_preview_row:
+            return
+        self.hide_crop_preview()
+        paths = sorted(path for path in self.result_crops[row].glob("*") if path.suffix.lower() in Image.registered_extensions())
+        if not paths:
+            return
+        self.crop_preview = tk.Toplevel(self.tree)
+        self.crop_preview.withdraw()
+        self.crop_preview.overrideredirect(True)
+        self.crop_preview.attributes("-topmost", True)
+        canvas = tk.Canvas(self.crop_preview, width=612, height=min(360, ceil(len(paths) / 3) * 204), highlightthickness=0)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar = ttk.Scrollbar(self.crop_preview, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side="right", fill="y")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        gallery = ttk.Frame(canvas)
+        canvas.create_window(0, 0, window=gallery, anchor="nw")
+        self.crop_preview_images = []
+        for index, path in enumerate(paths):
+            with Image.open(path) as image:
+                image.thumbnail((192, 192))
+                photo = ImageTk.PhotoImage(image)
+            self.crop_preview_images.append(photo)
+            ttk.Label(gallery, image=photo, padding=6).grid(row=index // 3, column=index % 3)
+        self.crop_preview.bind("<Leave>", self.leave_crop_preview)
+        self.crop_preview.bind("<MouseWheel>", lambda event: canvas.yview_scroll(-int(event.delta / 120), "units"))
+        self.crop_preview.update_idletasks()
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        x = min(event.x_root + 16, self.winfo_screenwidth() - self.crop_preview.winfo_reqwidth())
+        y = min(event.y_root + 16, self.winfo_screenheight() - self.crop_preview.winfo_reqheight())
+        self.crop_preview.geometry(f"+{max(0, x)}+{max(0, y)}")
+        self.crop_preview.deiconify()
+        self.crop_preview_row = row
+
+    def leave_crop_preview(self, event):
+        self.after(200, self.dismiss_crop_preview)
+
+    def dismiss_crop_preview(self):
+        if self.crop_preview is not None:
+            x, y = self.winfo_pointerxy()
+            popup = self.crop_preview
+            if popup.winfo_rootx() <= x < popup.winfo_rootx() + popup.winfo_width() and (
+                popup.winfo_rooty() <= y < popup.winfo_rooty() + popup.winfo_height()
+            ):
+                return
+        self.hide_crop_preview()
+
+    def hide_crop_preview(self, event=None):
+        if self.crop_preview is not None:
+            self.crop_preview.destroy()
+            self.crop_preview = None
+        self.crop_preview_images = []
+        self.crop_preview_row = ""
 
     def filter_labels(self, *_):
         query = self.label_filter.get().casefold()
@@ -592,14 +735,20 @@ class MainView(ttk.Frame):
         if selection:
             variable.set(selection)
 
+    def update_quarantine_input(self, *_):
+        self.quarantine_entry.state(["!disabled"] if self.quarantine_video_failures.get() and not self.busy else ["disabled"])
+
     def set_busy(self, busy):
         self.busy = busy
         for widget in self.inputs + [self.scan_button]:
             widget.state(["disabled"] if busy else ["!disabled"])
+        self.update_quarantine_input()
         self.stop_button.state(["!disabled"] if busy else ["disabled"])
         self.move_button.state(["!disabled"] if self.move_plan and not busy else ["disabled"])
 
     def start_scan(self):
+        self.open_run_button.state(["disabled"])
+        self.run_path = None
         self.scan_speed.set("")
         self.options = ScanOptions(
             source=Path(self.source.get()).resolve(),
@@ -609,8 +758,12 @@ class MainView(ttk.Frame):
             batch=self.batch.get(), quantize={"Default": None, "FP32": 32, "FP16": 16}[self.precision.get()],
             compile=self.compile.get(), imgsz=None if self.imgsz.get() == "Default" else int(self.imgsz.get()),
             vid_stride=self.vid_stride.get(),
+            stream_buffer=self.stream_buffer.get(),
+            stream=self.stream.get(),
+            save=self.save_results.get(), save_crop=self.save_crop.get(), save_txt=self.save_txt.get(),
             frame_percentage=self.frame_percentage.get(), device=self.device.get(),
-            recursive=self.recursive.get(), include_videos=self.videos.get(),
+            include_videos=self.videos.get(),
+            quarantine_video_failures=self.quarantine_video_failures.get(), quarantine_folder=self.quarantine_folder.get(),
         )
         self.results = []
         self.move_plan = []
@@ -623,6 +776,8 @@ class MainView(ttk.Frame):
         self.label_checks.clear()
         self.label_vars.clear()
         self.result_paths.clear()
+        self.result_crops.clear()
+        self.hide_crop_preview()
         self.original_rows = {"": []}
         self.tree.delete(*self.tree.get_children())
         self.stop.clear()
@@ -698,6 +853,9 @@ class MainView(ttk.Frame):
             kind, payload = self.events.get()
             if kind == "status":
                 self.status.set(payload)
+            elif kind == "run_path":
+                self.run_path = payload
+                self.open_run_button.state(["!disabled"])
             elif kind == "total":
                 self.total_media = payload
                 rows_changed = True

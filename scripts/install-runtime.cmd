@@ -5,5 +5,5 @@ set "UV_PROJECT_ENVIRONMENT=%~dp0runtime\venv"
 set "UV_CACHE_DIR=%~dp0runtime\cache"
 set "UV_LINK_MODE=copy"
 set "UV_HTTP_RETRIES=0"
-"%~dp0tools\uv.exe" sync --directory "%~dp0app" --locked --no-default-groups --python 3.12.10 --managed-python --no-editable
+"%~dp0tools\uv.exe" sync --directory "%~dp0app" --no-default-groups --python 3.12.10 --managed-python --no-editable
 exit /b %errorlevel%

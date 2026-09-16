@@ -3,6 +3,7 @@
 import hashlib
 import json
 import logging
+import os
 import shutil
 import sqlite3
 from collections import deque
@@ -29,7 +30,6 @@ from ultralytics.utils.checks import check_file
 
 from app.config import CONFIG_DIR, HF_CACHE_DIR, MODELS_DIR
 
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".wmv", ".mpeg", ".mpg", ".mov", ".m4v", ".mkv", ".webm"}
 # TODO: convert MODEL_PRESETS to pydantic models saved in one models.json app config,
 # with the current values committed as the default JSON.
@@ -79,9 +79,15 @@ class ScanOptions:
     compile: bool = False
     imgsz: int | None = None
     vid_stride: int = 1
+    stream_buffer: bool = True
+    stream: bool = True
+    save_crop: bool = False
+    save: bool = False
+    save_txt: bool = False
     frame_percentage: float = 50
-    recursive: bool = True
     include_videos: bool = True
+    quarantine_video_failures: bool = False
+    quarantine_folder: str = "quarantine"
     device: str = ""
 
 
@@ -94,6 +100,7 @@ class MediaResult:
     destination: Path | None
     cached: bool
     frame_number: int | None
+    run_path: Path | None = None
 
 
 def load_model(reference: str, emit=None):
@@ -165,22 +172,6 @@ def load_model(reference: str, emit=None):
     if emit is not None:
         emit("status", "Reading model classes")
     return model
-
-
-def discover(options: ScanOptions, label_folders=()):
-    extensions = IMAGE_EXTENSIONS | (VIDEO_EXTENSIONS if options.include_videos else set())
-
-    def visit(directory):
-        for path in sorted(directory.iterdir()):
-            if path.is_symlink():
-                continue
-            if path.is_dir():
-                if options.recursive and path.name != ".yolo-organizer" and path not in label_folders:
-                    yield from visit(path)
-            elif path.suffix.lower() in extensions:
-                yield path
-
-    yield from visit(options.source)
 
 
 def media_image(path: Path, frame_percentage: float):
@@ -269,8 +260,21 @@ def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, em
                 path TEXT NOT NULL, signature TEXT NOT NULL, size INTEGER NOT NULL,
                 modified INTEGER NOT NULL, predictions TEXT NOT NULL, frame INTEGER,
                 PRIMARY KEY(path, signature))""")
-            kwargs = {"verbose": True, "save": False, "conf": options.scan_confidence, "stream": True}
+            database.execute("""CREATE TABLE IF NOT EXISTS media_runs (
+                path TEXT NOT NULL, signature TEXT NOT NULL, run_path TEXT NOT NULL,
+                PRIMARY KEY(path, signature))""")
+            kwargs = {"verbose": True, "save": options.save, "conf": options.scan_confidence, "stream": options.stream}
+            kwargs.update(
+                project=str(CONFIG_DIR / "runs"),
+                name=hashlib.sha256(str(options.source.resolve()).encode()).hexdigest(), exist_ok=True,
+            )
+            run_path = Path(kwargs["project"]) / kwargs["name"]
+            run_path.mkdir(parents=True, exist_ok=True)
+            emit("run_path", run_path)
+            LOGGER.info("YOLO results directory: %s", run_path)
+            kwargs.update(save_crop=options.save_crop, save_txt=options.save_txt)
             kwargs.update(batch=options.batch, quantize=options.quantize, compile=options.compile, vid_stride=options.vid_stride)
+            kwargs["stream_buffer"] = options.stream_buffer
             if options.imgsz is not None:
                 kwargs["imgsz"] = options.imgsz
             if options.device:
@@ -281,8 +285,44 @@ def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, em
             indexed = {}
             device_reported = False
             scan_times = deque([perf_counter()], maxlen=31)
-            inference = (crop_model if crop_model is not None else model).predict(source=str(options.source), **kwargs)
-            for inference_result in inference:
+            inference = None
+            while not stop.is_set():
+                try:
+                    if inference is None:
+                        inference = iter((crop_model if crop_model is not None else model).predict(source=str(options.source), **kwargs))
+                    inference_result = next(inference)
+                except StopIteration:
+                    break
+                except FileNotFoundError as error:
+                    prefix = "Failed to open video "
+                    if not options.quarantine_video_failures or not str(error).startswith(prefix):
+                        raise
+                    path = Path(str(error).removeprefix(prefix)).resolve()
+                    if path.parent != options.source.resolve() or path.suffix.removeprefix(".").lower() not in VID_FORMATS:
+                        raise
+                    LOGGER.exception("Video open failure")
+                    if stop.is_set():
+                        break
+                    destination = options.source / label_folder(options.quarantine_folder) / path.name
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    with path.open("rb") as source, destination.open("xb") as target:
+                        shutil.copyfileobj(source, target)
+                        target.flush()
+                        os.fsync(target.fileno())
+                    shutil.copystat(path, destination)
+                    path.unlink()
+                    indexed.pop(path, None)
+                    database.execute("DELETE FROM media WHERE path = ?", (str(path),))
+                    database.execute("DELETE FROM media_runs WHERE path = ?", (str(path),))
+                    total -= 1
+                    emit("total", total)
+                    LOGGER.info("Quarantined %s -> %s", path, destination)
+                    if total == 0:
+                        break
+                    emit("status", f"Quarantined {path.name}; re-running scan")
+                    LOGGER.info("Re-running media folder scan")
+                    inference = None
+                    continue
                 if not device_reported:
                     output = inference_result.probs if inference_result.probs is not None else (
                         inference_result.obb if inference_result.obb is not None else inference_result.boxes
@@ -314,7 +354,10 @@ def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, em
                     "INSERT OR REPLACE INTO media VALUES (?, ?, ?, ?, ?, ?)",
                     (str(path), signature, stat.st_size, stat.st_mtime_ns, json.dumps(predictions), None),
                 )
-                indexed[path] = MediaResult(path, None, None, predictions, None, False, None)
+                database.execute(
+                    "INSERT OR REPLACE INTO media_runs VALUES (?, ?, ?)", (str(path), signature, str(run_path)),
+                )
+                indexed[path] = MediaResult(path, None, None, predictions, None, False, None, run_path)
                 if first_result_for_path:
                     completed = len(indexed)
                     scan_times.append(perf_counter())

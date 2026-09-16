@@ -26,10 +26,16 @@ class AppState(BaseModel):
     compile: bool = False
     imgsz: str = "Default"
     vid_stride: int = 1
+    stream_buffer: bool = True
+    stream: bool = True
+    save_crop: bool = False
+    save_results: bool = False
+    save_txt: bool = False
     frame_percentage: float = 50
     device: str = ""
-    recursive: bool = True
     videos: bool = True
+    quarantine_video_failures: bool = False
+    quarantine_folder: str = "quarantine"
     selected_labels: list[str] = Field(default_factory=list)
     sort_columns: dict[str, bool] = Field(default_factory=dict)
     window_geometry: str = "1440x960"

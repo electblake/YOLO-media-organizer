@@ -1,4 +1,5 @@
 import csv
+import sqlite3
 from dataclasses import replace
 from pathlib import Path
 from threading import Event
@@ -60,18 +61,6 @@ def test_video_snapshot_percentage_and_rgb(tmp_path):
     assert abs(image.getpixel((10, 10))[2] - 100) < 5
     _, end = scanner.media_image(path, 100)
     assert end == 10
-
-
-def test_discovery_excludes_output_and_preserves_unicode(tmp_path):
-    source = tmp_path / "input"
-    output = source / "sorted"
-    output.mkdir(parents=True)
-    (source / "nested").mkdir()
-    for name in ["one.JPG", "clip.MP4", "ignore.txt", "nested/日本.png", "sorted/old.jpg"]:
-        (source / name).touch()
-    options = ScanOptions(source)
-    assert {p.name for p in scanner.discover(options, {output})} == {"one.JPG", "clip.MP4", "日本.png"}
-    assert {p.name for p in scanner.discover(replace(options, recursive=False, include_videos=False))} == {"one.JPG"}
 
 
 def test_index_reuse_and_invalidation(tmp_path, monkeypatch):
@@ -140,7 +129,7 @@ def test_scan_passes_media_folder_to_one_ultralytics_run(tmp_path, monkeypatch, 
     monkeypatch.setattr(scanner, "perf_counter", lambda: next(times))
     events = []
     log_path = tmp_path / "scan.log"
-    overrides = {} if count == 18 else {"batch": 8, "quantize": 16, "compile": True, "imgsz": 320, "vid_stride": 3}
+    overrides = {} if count == 18 else {"batch": 8, "quantize": 16, "compile": True, "imgsz": 320, "vid_stride": 3, "stream_buffer": False}
     results = scanner.scan(
         ScanOptions(source, **overrides), tmp_path / "index.db", log_path, Event(), lambda *event: events.append(event),
     )
@@ -149,7 +138,7 @@ def test_scan_passes_media_folder_to_one_ultralytics_run(tmp_path, monkeypatch, 
     assert calls[0][1]["stream"] is True
     assert calls[0][1]["conf"] == 0.25
     assert calls[0][1]["verbose"] and not calls[0][1]["save"]
-    expected = {"batch": 1, "quantize": None, "compile": False, "vid_stride": 1} | overrides
+    expected = {"batch": 1, "quantize": None, "compile": False, "vid_stride": 1, "stream_buffer": True} | overrides
     for name, value in expected.items():
         assert calls[0][1][name] == value
     if not overrides:
@@ -170,6 +159,70 @@ def test_scan_passes_media_folder_to_one_ultralytics_run(tmp_path, monkeypatch, 
     assert "native verbose output" in log
     assert "Inference device: cpu" in log
     assert f"Scanning ({count}/{count})" not in log
+
+
+def test_run_directory_is_stable_and_distinguishes_media_folders(tmp_path, monkeypatch):
+    from ultralytics.cfg import get_save_dir
+
+    config = tmp_path / "config"
+    monkeypatch.setattr(scanner, "CONFIG_DIR", config)
+    weights = tmp_path / "model.pt"
+    weights.touch()
+    calls = []
+
+    def predict(source, **kwargs):
+        calls.append(kwargs)
+        return []
+
+    monkeypatch.setattr(scanner, "load_model", lambda _: SimpleNamespace(ckpt_path=str(weights), predict=predict))
+    source = tmp_path / "first" / "My Media"
+    other = tmp_path / "second" / "My Media"
+    source.mkdir(parents=True)
+    other.mkdir(parents=True)
+    paths = []
+    for folder in (source, source / ".", other):
+        scanner.scan(ScanOptions(folder), tmp_path / "index.db", tmp_path / "scan.log", Event(), lambda *_: None)
+        kwargs = calls[-1]
+        path = get_save_dir(SimpleNamespace(**kwargs, task="detect", mode="predict"))
+        path.mkdir(parents=True, exist_ok=True)
+        paths.append(path)
+        assert path.parent == config / "runs"
+        assert len(path.name) == 64
+        assert all(character in "0123456789abcdef" for character in path.name)
+        assert kwargs["exist_ok"] is True
+        assert kwargs["save"] is False
+    assert paths[0] == paths[1]
+    assert paths[0] != paths[2]
+    assert str(paths[2]) in (tmp_path / "scan.log").read_text(encoding="utf-8")
+
+
+def test_saved_output_paths_are_recorded(tmp_path, monkeypatch):
+    monkeypatch.setattr(scanner, "CONFIG_DIR", tmp_path / "config")
+    source = tmp_path / "media"
+    source.mkdir()
+    image = source / "photo.png"
+    Image.new("RGB", (32, 32), "red").save(image)
+    weights = tmp_path / "model.pt"
+    weights.touch()
+
+    def predict(source, **kwargs):
+        assert kwargs["save_crop"] and kwargs["save_txt"]
+        assert kwargs["save"]
+        result = Results(np.array(Image.open(image)), str(image), {0: "cat"}, boxes=torch.tensor([[2, 2, 20, 20, .9, 0]]))
+        run_path = Path(kwargs["project"]) / kwargs["name"]
+        result.save_crop(run_path / "crops", file_name=image.stem)
+        result.save_txt(run_path / "labels" / f"{image.stem}.txt")
+        return [result]
+
+    monkeypatch.setattr(scanner, "load_model", lambda _: SimpleNamespace(ckpt_path=str(weights), predict=predict))
+    result = scanner.scan(
+        ScanOptions(source, save=True, save_crop=True, save_txt=True), tmp_path / "index.db", tmp_path / "scan.log", Event(), lambda *_: None,
+    )[0]
+    assert (result.run_path / "crops" / "cat" / "photo.jpg").is_file()
+    assert (result.run_path / "labels" / "photo.txt").is_file()
+    with sqlite3.connect(tmp_path / "index.db") as database:
+        assert database.execute("SELECT path, run_path FROM media_runs").fetchone() == (str(image), str(result.run_path))
+        assert "cat" in database.execute("SELECT predictions FROM media").fetchone()[0]
 
 
 def test_moves_originals_and_journals_without_overwriting(tmp_path):

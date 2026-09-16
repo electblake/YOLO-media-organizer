@@ -10,7 +10,7 @@ from app.config import AppConfig, AppState, Settings
 
 def test_defaults_config_state_and_explicit_arguments(tmp_path):
     AppConfig(model="configured", move_confidence=0.7, device="cpu", videos=False).save(tmp_path / "config.json")
-    AppState(model="remembered", move_confidence=0.8, recursive=False).save(tmp_path / "state.json")
+    AppState(model="remembered", move_confidence=0.8).save(tmp_path / "state.json")
     assert vars(build_parser().parse_args([])) == {}
     arguments = vars(build_parser().parse_args(["--model", "argument", "--move-confidence", "0", "--videos"]))
     settings = Settings(tmp_path, arguments)
@@ -18,7 +18,6 @@ def test_defaults_config_state_and_explicit_arguments(tmp_path):
     assert settings.values.move_confidence == 0
     assert settings.values.device == "cpu"
     assert settings.values.videos is True
-    assert settings.values.recursive is False
     assert settings.values.min_predictions == 1
     settings.save_state(AppState.model_validate(settings.state.model_dump(exclude_unset=True) | {"source": "chosen folder"}))
     restored = Settings(tmp_path, {})
@@ -28,8 +27,8 @@ def test_defaults_config_state_and_explicit_arguments(tmp_path):
     assert restored.values.videos is False
     assert "device" not in restored.state.model_fields_set
     assert restored.config.source == ""
-    assert vars(build_parser().parse_args(["--no-recursive", "--selected-labels"])) == {
-        "recursive": False, "selected_labels": [],
+    assert vars(build_parser().parse_args(["--no-videos", "--selected-labels"])) == {
+        "videos": False, "selected_labels": [],
     }
 
 
@@ -123,13 +122,13 @@ view.options = ScanOptions(directory)
 result = MediaResult(directory / "image.png", None, None, [{"label": "dynamic", "confidence": .9}], None, False, None)
 view.results = [result]
 view.refresh_results()
-scan_values = {"batch": 8, "precision": "FP16", "compile": True, "imgsz": "320", "vid_stride": 3}
+scan_values = {"batch": 8, "precision": "FP16", "compile": True, "imgsz": "320", "vid_stride": 3, "stream_buffer": False, "stream": False}
+scan_values.update(save_results=True, save_crop=True, save_txt=True)
 for name, value in scan_values.items():
     assert getattr(view, name).get() == getattr(AppState(), name)
     getattr(view, name).set(value)
 view.model.set("custom")
 view.move_confidence.set(.75)
-view.recursive.set(False)
 view.label_checks["dynamic"].invoke()
 view.toggle_sort("confidence")
 view.set_preview_expanded(True)
@@ -150,7 +149,6 @@ for name, value in scan_values.items():
 assert view.ultralytics_api_key.get() == "manual-test-key"
 assert view.huggingface_api_key.get() == "manual-test-hf"
 assert view.move_confidence.get() == .75
-assert not view.recursive.get()
 assert view.source.get() == str(directory)
 view.options = ScanOptions(directory)
 view.results = [result]

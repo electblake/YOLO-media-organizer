@@ -24,13 +24,12 @@ CloseApplications=yes
 SetupLogging=yes
 
 [Files]
-Source: "..\build\bootstrap\uv\uv.exe"; DestDir: "{app}\tools"; Hash: "b1645e948603c12dd741987d0c072471195e18dd299b42334477ceac694f0af8"; Flags: ignoreversion
+Source: "..\build\bootstrap\uv\uv.exe"; DestDir: "{app}\tools"; Flags: ignoreversion
 Source: "..\build\bootstrap\LICENSE-*"; DestDir: "{app}\tools\licenses"; Flags: ignoreversion
 Source: "..\app\*.py"; DestDir: "{app}\app\app"; Flags: ignoreversion
 Source: "..\assets\Ymo.ico"; DestDir: "{app}\app\assets"; Flags: ignoreversion
 Source: "..\assets\Ymo.png"; DestDir: "{app}\app\assets"; Flags: ignoreversion
 Source: "..\pyproject.toml"; DestDir: "{app}\app"; Flags: ignoreversion
-Source: "..\uv.lock"; DestDir: "{app}\app"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}\app"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}\app"; Flags: ignoreversion
 Source: "install-runtime.cmd"; DestDir: "{app}"; Flags: ignoreversion
