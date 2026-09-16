@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 from ctypes import wintypes
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from PIL import ImageGrab
 
 executable = Path(sys.argv[1]).resolve()
 screenshot = Path(sys.argv[2]).resolve()
+with (Path(__file__).resolve().parent.parent / "pyproject.toml").open("rb") as project_file:
+    version = tomllib.load(project_file)["project"]["version"]
 user32 = ctypes.windll.user32
 user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
 user32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
@@ -30,7 +33,7 @@ def find_window(handle, _):
     user32.GetWindowThreadProcessId(handle, ctypes.byref(pid))
     title = ctypes.create_unicode_buffer(512)
     user32.GetWindowTextW(handle, title, len(title))
-    if pid.value in process_ids and title.value == "YOLO Media Organizer":
+    if pid.value in process_ids and title.value == f"YOLO Media Organizer v{version}":
         windows.append(handle)
     return True
 

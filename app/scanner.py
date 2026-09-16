@@ -238,12 +238,16 @@ def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, em
     log_handler.setFormatter(logging.Formatter("%(message)s"))
     LOGGER.addHandler(log_handler)
     try:
+        LOGGER.info("Scan options: %s", json.dumps(asdict(options), default=str, ensure_ascii=False))
+        LOGGER.info("Runtime: ultralytics=%s, torch=%s, opencv=%s", ultralytics.__version__, torch.__version__, cv2.__version__)
+        LOGGER.info("Index: %s", index_path)
         formats = IMG_FORMATS | VID_FORMATS
         total = sum(
             path.is_file() and path.suffix.removeprefix(".").lower() in formats
             for path in options.source.iterdir()
         )
         emit("total", total)
+        LOGGER.info("Media files in source folder: %s", total)
         emit("status", "Loading YOLO models")
         model = load_model(options.model)
         crop_model = load_model(options.crop_model) if options.crop_model else None
@@ -255,6 +259,7 @@ def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, em
         for loaded in [model] + ([crop_model] if crop_model is not None else []):
             weights = Path(loaded.ckpt_path if loaded.ckpt_path else loaded.model).resolve()
             stat = weights.stat()
+            LOGGER.info("Model weights: %s (bytes=%s, modified_ns=%s)", weights, stat.st_size, stat.st_mtime_ns)
             signature["weights"].append([str(weights), stat.st_size, stat.st_mtime_ns])
         signature = json.dumps(signature, sort_keys=True)
         index_path.parent.mkdir(parents=True, exist_ok=True)
@@ -270,6 +275,7 @@ def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, em
                 kwargs["imgsz"] = options.imgsz
             if options.device:
                 kwargs["device"] = options.device
+            LOGGER.info("Inference arguments: %s", json.dumps(kwargs))
             status = f"Scanning (0/{total})"
             emit("status", status)
             indexed = {}
@@ -320,6 +326,7 @@ def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, em
             results = list(indexed.values())
             for result in results:
                 emit("item", result)
+        LOGGER.info("Scan %s: %s files indexed", "stopped" if stop.is_set() else "completed", len(results))
         return results
     finally:
         LOGGER.removeHandler(log_handler)

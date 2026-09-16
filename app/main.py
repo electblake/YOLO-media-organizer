@@ -3,13 +3,17 @@
 import os
 import queue
 import tkinter as tk
+import traceback
+import tomllib
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from math import ceil
 from pathlib import Path
 from threading import Event
-from tkinter import filedialog, ttk
+from tkinter import filedialog, font, ttk
+
+from PIL import Image, ImageTk
 
 from app.arguments import build_parser
 from app.config import CONFIG_DIR, AppState, Settings
@@ -67,7 +71,19 @@ class MainView(ttk.Frame):
 
         heading = ttk.Frame(self)
         heading.grid(row=0, column=0, sticky="ew", pady=(0, 12))
-        ttk.Label(heading, text="YOLO Media Organizer", font=("Segoe UI", 20, "bold")).pack(anchor="w")
+        with (Path(__file__).resolve().parent.parent / "pyproject.toml").open("rb") as project_file:
+            version = tomllib.load(project_file)["project"]["version"]
+        title = f"YOLO Media Organizer v{version}"
+        self.winfo_toplevel().title(title)
+        self.title_font = font.Font(self, family="Segoe UI", size=20, weight="bold")
+        ttk.Label(heading, text=title, font=self.title_font).pack(side="left")
+        icon_size = self.title_font.metrics("linespace")
+        with Image.open(Path(__file__).resolve().parent.parent / "assets" / "Ymo.png") as icon:
+            self.project_icon = ImageTk.PhotoImage(icon.resize((icon_size, icon_size), Image.Resampling.LANCZOS), master=self)
+        ttk.Button(
+            heading, image=self.project_icon, text="Project website", cursor="hand2", padding=0,
+            command=lambda: os.startfile("https://github.com/electblake/YOLO-media-organizer"),
+        ).pack(side="right")
 
         self.main_panes = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
         self.main_panes.grid(row=1, column=0, sticky="nsew")
@@ -291,8 +307,25 @@ class MainView(ttk.Frame):
         ttk.Label(footer, textvariable=self.scan_speed, anchor="e").grid(row=0, column=1, sticky="e", padx=(12, 0))
         self.progress = ttk.Progressbar(footer, mode="determinate")
         self.progress.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(6, 0))
+        console_actions = ttk.Frame(self)
+        console_actions.grid(row=5, column=0, sticky="ew", pady=(12, 0))
+        console_actions.columnconfigure(0, weight=1)
+        self.copy_notice = ttk.Label(console_actions, text="")
+        self.copy_notice.grid(row=0, column=0, sticky="e", padx=(0, 8))
+        self.copy_logs_button = ttk.Button(console_actions, text="copy logs", command=self.copy_logs)
+        self.copy_logs_button.grid(row=0, column=1, sticky="e")
+        self.download_logs_button = ttk.Button(console_actions, text="download logs", command=self.download_logs, state="disabled")
+        self.download_logs_button.grid(row=0, column=2, sticky="e", padx=(8, 0))
+        self.open_logs_button = ttk.Button(
+            console_actions, text="open logs", command=lambda: os.startfile(self.log_path), state="disabled",
+        )
+        self.open_logs_button.grid(row=0, column=3, sticky="e", padx=(8, 0))
+        self.open_logs_path_button = ttk.Button(
+            console_actions, text="open logs path", command=lambda: os.startfile(self.log_path.parent), state="disabled",
+        )
+        self.open_logs_path_button.grid(row=0, column=4, sticky="e", padx=(8, 0))
         self.console_frame = ttk.LabelFrame(self, text="Console")
-        self.console_frame.grid(row=5, column=0, sticky="ew", pady=(12, 0))
+        self.console_frame.grid(row=6, column=0, sticky="ew")
         self.console_frame.columnconfigure(0, weight=1)
         self.log_console = tk.Text(
             self.console_frame, height=8, wrap="none", state="disabled", font="TkFixedFont",
@@ -420,7 +453,7 @@ class MainView(ttk.Frame):
         self.tree.selection_set([row for row in selection if self.tree.exists(row)])
         percentage = len(self.move_plan) / self.total_media * 100 if self.total_media else 0
         self.media_stats.set(f"{self.total_media} files · {len(visible_labels)} labels · {len(self.move_plan)} to move ({percentage:.0f}%)")
-        self.move_button.state(["!disabled"] if self.results and not (self.busy and self.operation in {"scan", "classes"}) else ["disabled"])
+        self.move_button.state(["!disabled"] if self.move_plan and not self.busy else ["disabled"])
 
     def filter_labels(self, *_):
         query = self.label_filter.get().casefold()
@@ -564,7 +597,7 @@ class MainView(ttk.Frame):
         for widget in self.inputs + [self.scan_button]:
             widget.state(["disabled"] if busy else ["!disabled"])
         self.stop_button.state(["!disabled"] if busy else ["disabled"])
-        self.move_button.state(["!disabled"] if self.results and not (busy and self.operation in {"scan", "classes"}) else ["disabled"])
+        self.move_button.state(["!disabled"] if self.move_plan and not busy else ["disabled"])
 
     def start_scan(self):
         self.scan_speed.set("")
@@ -597,11 +630,14 @@ class MainView(ttk.Frame):
         logs.mkdir(parents=True, exist_ok=True)
         self.log_path = logs / (datetime.now(UTC).strftime("scan-%Y%m%d-%H%M%S-%f") + ".log")
         self.log_path.touch()
+        for button in (self.download_logs_button, self.open_logs_button, self.open_logs_path_button):
+            button.state(["!disabled"])
         self.log_position = 0
         self.console_frame.configure(text=f"Console · {self.log_path}")
         self.log_console.configure(state="normal")
         self.log_console.delete("1.0", "end")
         self.log_console.configure(state="disabled")
+        self.copy_notice.configure(text="")
         self.progress.configure(mode="indeterminate", value=0, maximum=100)
         self.progress.start()
         self.operation = "scan"
@@ -636,6 +672,22 @@ class MainView(ttk.Frame):
             self.log_console.insert("end", output)
             self.log_console.see("end")
             self.log_console.configure(state="disabled")
+
+    def download_logs(self):
+        destination = filedialog.asksaveasfilename(
+            parent=self, title="Save logs", initialfile=self.log_path.name,
+            defaultextension=".log", filetypes=[("Log files", "*.log"), ("All files", "*.*")],
+        )
+        if destination:
+            Path(destination).write_bytes(self.log_path.read_bytes())
+
+    def copy_logs(self):
+        self.refresh_console()
+        self.log_console.tag_add("sel", "1.0", "end-1c")
+        self.log_console.focus_set()
+        self.clipboard_clear()
+        self.clipboard_append(self.log_console.get("1.0", "end-1c"))
+        self.copy_notice.configure(text="Logs copied to clipboard.")
 
     def poll(self):
         self.refresh_console()
@@ -676,6 +728,12 @@ class MainView(ttk.Frame):
         if self.operation == "scan":
             self.scan_speed.set("")
             self.progress.stop()
+            error = self.future.exception()
+            if error is not None:
+                with self.log_path.open("a", encoding="utf-8") as stream:
+                    stream.write("\n" + "".join(traceback.format_exception(error)))
+                self.refresh_console()
+                self.status.set(f"Scan failed: {error}")
         result = self.future.result()
         self.refresh_console()
         self.refresh_results()
@@ -683,7 +741,7 @@ class MainView(ttk.Frame):
             self.progress.configure(mode="determinate", maximum=100, value=0 if self.stop.is_set() else 100)
             self.status.set(f"{'Stopped' if self.stop.is_set() else 'Preview ready'} · {len(self.results)} files")
         else:
-            self.status.set(f"{'Stopped' if self.stop.is_set() else 'Complete'} · {result} files moved · Journal: {self.data_dir / 'moves'}")
+            self.status.set(f"{result} files moved" if result else "No files moved.")
 
     def close(self):
         self.stop.set()
@@ -697,7 +755,6 @@ def main(argv=None):
     settings.apply_api_keys()
     root = tk.Tk()
     root.iconbitmap(default=str(Path(__file__).resolve().parent.parent / "assets" / "Ymo.ico"))
-    root.title("YOLO Media Organizer")
     root.geometry(settings.values.window_geometry)
     root.minsize(920, 620)
     root.columnconfigure(0, weight=1)

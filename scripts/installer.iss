@@ -28,6 +28,7 @@ Source: "..\build\bootstrap\uv\uv.exe"; DestDir: "{app}\tools"; Hash: "b1645e948
 Source: "..\build\bootstrap\LICENSE-*"; DestDir: "{app}\tools\licenses"; Flags: ignoreversion
 Source: "..\app\*.py"; DestDir: "{app}\app\app"; Flags: ignoreversion
 Source: "..\assets\Ymo.ico"; DestDir: "{app}\app\assets"; Flags: ignoreversion
+Source: "..\assets\Ymo.png"; DestDir: "{app}\app\assets"; Flags: ignoreversion
 Source: "..\pyproject.toml"; DestDir: "{app}\app"; Flags: ignoreversion
 Source: "..\uv.lock"; DestDir: "{app}\app"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}\app"; Flags: ignoreversion

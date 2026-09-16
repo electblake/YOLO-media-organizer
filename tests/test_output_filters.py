@@ -79,7 +79,7 @@ def test_checked_labels_and_move_confidence_do_not_repeat_inference(tmp_path, mo
     assert "native scan output" in view.log_console.get("1.0", "end")
     assert view.inference_device.get() == "Device: cpu"
     assert str(view.log_path.parent) in view.console_frame.cget("text")
-    assert view.move_button.instate(["!disabled"])
+    assert view.move_button.instate(["disabled"])
     assert len(calls) == 1
     assert calls[0]["conf"] == 0.25
     assert set(view.label_vars) == {"label-A", "label-B"}
@@ -97,7 +97,7 @@ def test_checked_labels_and_move_confidence_do_not_repeat_inference(tmp_path, mo
     assert view.max_predictions.get() == -1
     assert float(view.min_count.cget("from")) == 1
     assert view.min_count.instate(["readonly"])
-    assert view.move_button.instate(["!disabled"])
+    assert view.move_button.instate(["disabled"])
     assert all(view.tree.set(row, "destination") == "" for row in view.tree.get_children())
 
     view.move_confidence.set(0.3)

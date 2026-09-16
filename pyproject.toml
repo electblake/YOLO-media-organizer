@@ -28,7 +28,8 @@ build-backend = "setuptools.build_meta"
 packages = ["app", "assets"]
 
 [tool.setuptools.package-data]
-assets = ["Ymo.ico"]
+app = ["../pyproject.toml"]
+assets = ["Ymo.ico", "Ymo.png"]
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.16.7"]
