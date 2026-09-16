@@ -1,3 +1,6 @@
+import subprocess
+import sys
+import textwrap
 import time
 import tkinter as tk
 from threading import Event
@@ -133,3 +136,67 @@ def test_checked_labels_and_move_confidence_do_not_repeat_inference(tmp_path, mo
     assert view.result_paths[str(source / "b.png")] == source / "label-B" / "b.png"
     assert len(calls) == 4
     view.close()
+
+
+def test_scan_reports_file_failures_and_finishes(tmp_path):
+    script = """
+    import sys
+    import time
+    import tkinter as tk
+    from pathlib import Path
+    from types import SimpleNamespace
+    import numpy as np
+    import pytest
+    import torch
+    from PIL import Image
+    from ultralytics.engine.results import Results
+    from app import scanner
+    from app.config import Settings
+    from app.main import MainView
+    tmp_path = Path(sys.argv[1])
+    monkeypatch = pytest.MonkeyPatch()
+    source = tmp_path / "media"
+    source.mkdir()
+    Image.new("RGB", (16, 16), "red").save(source / "a.png")
+    (source / "b.png").write_bytes(b"invalid image")
+    Image.new("RGB", (16, 16), "blue").save(source / "c.png")
+    Image.new("RGB", (16, 16), "red").save(source / "d.png")
+    weights = tmp_path / "weights.pt"
+    weights.write_bytes(b"test")
+    names = {0: "person"}
+
+    def predict(source, **kwargs):
+        if source.getpixel((0, 0))[2]:
+            raise RuntimeError("inference failed for this file")
+        return [Results(np.array(source), "image", names, probs=torch.tensor([1.0]))]
+
+    monkeypatch.setattr(scanner, "load_model", lambda _: SimpleNamespace(
+        names=names, ckpt_path=str(weights), predict=predict,
+    ))
+    root = tk.Tk()
+    view = MainView(root, Settings(tmp_path / "settings", {}))
+    view.pack(fill="both", expand=True)
+    view.source.set(str(source))
+    for attempt in range(2):
+        view.start_scan()
+        assert view.failed_files == 0
+        assert view.scan_error.get() == ""
+        for _ in range(1000):
+            root.update()
+            if not view.busy:
+                break
+            time.sleep(0.01)
+        view.future.result()
+        assert not view.busy
+        assert [result.source.name for result in view.results] == ["a.png", "d.png"]
+        assert all(result.cached == bool(attempt) for result in view.results)
+        assert view.failed_files == 2
+        assert view.progress["value"] == view.progress["maximum"] == 4
+        assert "RuntimeError: inference failed for this file" in view.scan_error.get()
+        assert view.status.get() == "Preview ready · 2 media · 2 failed"
+    assert sorted(path.name for path in source.iterdir()) == ["a.png", "b.png", "c.png", "d.png"]
+    view.close()
+    """
+    output = subprocess.check_output([sys.executable, "-c", textwrap.dedent(script), str(tmp_path)], text=True)
+    assert "b.png: UnidentifiedImageError:" in output
+    assert "c.png: RuntimeError: inference failed for this file" in output

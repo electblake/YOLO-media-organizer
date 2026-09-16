@@ -5,6 +5,7 @@
 ### Added
 
 - Live file totals, matched counts and percentages, and remaining files to move beside Open media folder.
+- Print individual scan failures and display the latest error and failure count while continuing with remaining files.
 
 ## [0.7.1] - 2026-09-15
 

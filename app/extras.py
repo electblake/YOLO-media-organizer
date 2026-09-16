@@ -51,7 +51,7 @@ def install():
         menu_key = rf"Software\Classes\{context}\YOLO-media-organizer"
         with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, menu_key, 0, winreg.KEY_SET_VALUE) as key:
             winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "Open in YOLO Media Organizer")
-            winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, f'"{executable}",0')
+            winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, f'"{Path(__file__).resolve().parent.parent / "assets" / "Ymo.ico"}",0')
         with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, menu_key + r"\command", 0, winreg.KEY_SET_VALUE) as key:
             # A final dot keeps a drive's trailing backslash from escaping the closing quote.
             winreg.SetValueEx(key, "", 0, winreg.REG_SZ, f'{command} --source "{target}\\." --active-tab Scan')

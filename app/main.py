@@ -29,6 +29,7 @@ class MainView(ttk.Frame):
         self.stop = Event()
         self.results = []
         self.total_media = 0
+        self.failed_files = 0
         self.move_plan = []
         self.moved_results = {}
         self.label_vars = {}
@@ -53,6 +54,7 @@ class MainView(ttk.Frame):
         self.videos = tk.BooleanVar(self, value=values.videos)
         self.status = tk.StringVar(self, value="Choose a media folder. Destinations are model-label folders inside it.")
         self.media_stats = tk.StringVar(self, value="0 files · 0 matched (0%) · 0 to move")
+        self.scan_error = tk.StringVar(self)
         self.inputs = []
 
         heading = ttk.Frame(self)
@@ -280,6 +282,7 @@ class MainView(ttk.Frame):
         ttk.Label(footer, textvariable=self.status).grid(row=0, column=0, sticky="w")
         self.progress = ttk.Progressbar(footer, mode="determinate")
         self.progress.grid(row=1, column=0, sticky="ew", pady=(6, 0))
+        ttk.Label(footer, textvariable=self.scan_error, wraplength=850).grid(row=2, column=0, sticky="w")
         for variable in [self.move_confidence, self.min_predictions, self.max_predictions]:
             variable.trace_add("write", self.refresh_results)
         self.update_sort_headings()
@@ -583,6 +586,8 @@ class MainView(ttk.Frame):
         self.move_plan = []
         self.moved_results.clear()
         self.total_media = 0
+        self.failed_files = 0
+        self.scan_error.set("")
         self.media_stats.set("0 files · 0 matched (0%) · 0 to move")
         for check in self.label_checks.values():
             check.destroy()
@@ -627,6 +632,10 @@ class MainView(ttk.Frame):
                 rows_changed = True
                 self.results.append(payload)
                 self.progress["value"] += 1
+            elif kind == "error":
+                self.failed_files += 1
+                self.scan_error.set(f"{self.failed_files} failed · Last error: {payload}")
+                self.progress["value"] += 1
             elif kind == "moved":
                 rows_changed = True
                 self.moved_results[payload.source] = payload
@@ -641,6 +650,8 @@ class MainView(ttk.Frame):
         self.refresh_results()
         if self.operation == "scan":
             self.status.set(f"{'Stopped' if self.stop.is_set() else 'Preview ready'} · {len(self.results)} media")
+            if self.failed_files:
+                self.status.set(f"{self.status.get()} · {self.failed_files} failed")
         else:
             self.status.set(f"{'Stopped' if self.stop.is_set() else 'Complete'} · {result} files moved · Journal: {self.data_dir / 'moves'}")
 
@@ -655,6 +666,7 @@ def main(argv=None):
     settings = Settings(CONFIG_DIR, arguments)
     settings.apply_api_keys()
     root = tk.Tk()
+    root.iconbitmap(default=str(Path(__file__).resolve().parent.parent / "assets" / "Ymo.ico"))
     root.title("YOLO Media Organizer")
     root.geometry(settings.values.window_geometry)
     root.minsize(920, 620)

@@ -23,7 +23,10 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["app"]
+packages = ["app", "assets"]
+
+[tool.setuptools.package-data]
+assets = ["Ymo.ico"]
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.16.7"]

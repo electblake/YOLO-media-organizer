@@ -247,7 +247,13 @@ def scan(options: ScanOptions, index_path: Path, stop: Event, emit):
         for path in files:
             if stop.is_set():
                 break
-            stat = path.stat()
+            try:
+                stat = path.stat()
+            except OSError as error:
+                message = f"{path}: {type(error).__name__}: {error}"
+                print(message, flush=True)
+                emit("error", message)
+                continue
             cached = database.execute(
                 "SELECT predictions, frame FROM media WHERE path=? AND signature=? AND size=? AND modified=?",
                 (str(path), signature, stat.st_size, stat.st_mtime_ns),
@@ -256,8 +262,14 @@ def scan(options: ScanOptions, index_path: Path, stop: Event, emit):
                 predictions, frame_number = json.loads(cached[0]), cached[1]
             else:
                 emit("status", f"Scanning {path.name}")
-                image, frame_number = media_image(path, options.frame_percentage)
-                predictions = predict_image(model, crop_model, image, options)
+                try:
+                    image, frame_number = media_image(path, options.frame_percentage)
+                    predictions = predict_image(model, crop_model, image, options)
+                except Exception as error:
+                    message = f"{path}: {type(error).__name__}: {error}"
+                    print(message, flush=True)
+                    emit("error", message)
+                    continue
                 database.execute(
                     "INSERT OR REPLACE INTO media VALUES (?, ?, ?, ?, ?, ?)",
                     (str(path), signature, stat.st_size, stat.st_mtime_ns, json.dumps(predictions), frame_number),

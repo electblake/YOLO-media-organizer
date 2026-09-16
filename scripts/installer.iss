@@ -15,7 +15,8 @@ ArchitecturesAllowed=x64os
 ArchitecturesInstallIn64BitMode=x64os
 OutputDir=..\dist
 OutputBaseFilename={#Artifact}-Setup
-UninstallDisplayIcon={app}\runtime\venv\Scripts\pythonw.exe
+SetupIconFile=..\assets\Ymo-dark.ico
+UninstallDisplayIcon={app}\app\assets\Ymo.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -34,6 +35,7 @@ Name: "gpu"; Description: "NVIDIA CUDA 13.0 dependencies"; Types: gpu; Flags: ex
 Source: "..\build\bootstrap\uv\uv.exe"; DestDir: "{app}\tools"; Hash: "b1645e948603c12dd741987d0c072471195e18dd299b42334477ceac694f0af8"; Flags: ignoreversion
 Source: "..\build\bootstrap\LICENSE-*"; DestDir: "{app}\tools\licenses"; Flags: ignoreversion
 Source: "..\app\*.py"; DestDir: "{app}\app\app"; Flags: ignoreversion
+Source: "..\assets\Ymo.ico"; DestDir: "{app}\app\assets"; Flags: ignoreversion
 Source: "..\pyproject.toml"; DestDir: "{app}\app"; Flags: ignoreversion
 Source: "..\uv.lock"; DestDir: "{app}\app"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}\app"; Flags: ignoreversion
@@ -44,8 +46,8 @@ Source: "install-runtime.cmd"; DestDir: "{app}"; Flags: ignoreversion
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\runtime\venv\Scripts\pythonw.exe"; Parameters: "-I -m app"; WorkingDir: "{app}"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\runtime\venv\Scripts\pythonw.exe"; Parameters: "-I -m app"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\runtime\venv\Scripts\pythonw.exe"; Parameters: "-I -m app"; WorkingDir: "{app}"; IconFilename: "{app}\app\assets\Ymo.ico"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\runtime\venv\Scripts\pythonw.exe"; Parameters: "-I -m app"; WorkingDir: "{app}"; IconFilename: "{app}\app\assets\Ymo.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\runtime\venv\Scripts\pythonw.exe"; Parameters: "-I -m app"; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent; Check: DependenciesInstalled
