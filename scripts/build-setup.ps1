@@ -1,22 +1,15 @@
+#Requires -Version 7.0
 param(
-    [ValidateSet("cpu", "gpu")]
-    [string[]]$Backend = @("cpu", "gpu")
+    [string]$IsccPath = "$env:LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe"
 )
 
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 Set-Location (Split-Path $PSScriptRoot -Parent)
-$isccPath = Join-Path $env:LOCALAPPDATA "Programs/Inno Setup 6/ISCC.exe"
-foreach ($variant in $Backend) {
-    $python = Join-Path (Get-Location) ".venv-build/$variant/Scripts/python.exe"
-    $version = & $python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
-    $architecture = & $python -c "import platform; print(platform.machine().lower())"
-    $backendLabel = @{ cpu = "cpu"; gpu = "cu130" }[$variant]
-    $artifact = "YOLO-media-organizer-$version-windows-$architecture-$backendLabel"
-    & $isccPath "/DAppVersion=$version" "/DAppArchitecture=$architecture" "/DAppBackend=$backendLabel" "scripts/installer.iss"
-    if ((Get-Item "dist/$artifact-Setup.exe").Length -gt 500MB) {
-        Push-Location dist
-        7z a -t7z -mx=0 -v500m "$artifact-Setup.7z" "$artifact-Setup.exe"
-        Pop-Location
-    }
-}
+$version = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"$').Matches.Groups[1].Value
+New-Item -ItemType Directory -Force build/bootstrap | Out-Null
+Invoke-WebRequest 'https://github.com/astral-sh/uv/releases/download/0.11.11/uv-x86_64-pc-windows-msvc.zip' -OutFile build/bootstrap/uv.zip
+Expand-Archive -LiteralPath build/bootstrap/uv.zip -DestinationPath build/bootstrap/uv -Force
+Invoke-WebRequest 'https://raw.githubusercontent.com/astral-sh/uv/0.11.11/LICENSE-MIT' -OutFile build/bootstrap/LICENSE-MIT
+Invoke-WebRequest 'https://raw.githubusercontent.com/astral-sh/uv/0.11.11/LICENSE-APACHE' -OutFile build/bootstrap/LICENSE-APACHE
+& $IsccPath "/DAppVersion=$version" scripts/installer.iss

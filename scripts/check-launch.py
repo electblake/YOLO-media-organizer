@@ -1,4 +1,4 @@
-"""Verify the frozen window opens without the development environment."""
+"""Verify the installed window opens without the development environment."""
 
 import ctypes
 import os
@@ -9,6 +9,7 @@ import time
 from ctypes import wintypes
 from pathlib import Path
 
+import psutil
 from PIL import ImageGrab
 
 executable = Path(sys.argv[1]).resolve()
@@ -29,19 +30,20 @@ def find_window(handle, _):
     user32.GetWindowThreadProcessId(handle, ctypes.byref(pid))
     title = ctypes.create_unicode_buffer(512)
     user32.GetWindowTextW(handle, title, len(title))
-    if pid.value == process.pid and title.value == "YOLO Media Organizer":
+    if pid.value in process_ids and title.value == "YOLO Media Organizer":
         windows.append(handle)
     return True
 
 
 with tempfile.TemporaryDirectory() as working_directory:
-    process = subprocess.Popen([str(executable)], cwd=working_directory, env=environment)
+    process = subprocess.Popen([str(executable), "-I", "-m", "app"], cwd=working_directory, env=environment)
     for _ in range(90):
+        process_ids = {process.pid, *(child.pid for child in psutil.Process(process.pid).children(recursive=True))}
         user32.EnumWindows(find_window, 0)
         if windows or process.poll() is not None:
             break
         time.sleep(0.5)
-    assert windows, "Frozen application did not open its main window"
+    assert windows, "Installed application did not open its main window"
     time.sleep(1)
     ImageGrab.grab(window=windows[0]).save(screenshot)
     user32.PostMessageW(windows[0], 0x0010, 0, 0)

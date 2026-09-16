@@ -1,9 +1,20 @@
 # Changelog
 
-Notable changes are recorded here using the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
-Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [Unreleased]
+
+## [0.7.0] - 2026-09-15
+
+### Changed
+
+- One Windows installer with CPU or NVIDIA CUDA 13.0 selection during setup.
+- Setup downloads Python 3.12.10 and locked dependencies into a private environment.
+- Re-running setup can switch between CPU and GPU dependencies.
+- Build the installer with `./scripts/build-setup.ps1`.
+
+### Removed
+
+- PyInstaller bundles, separate CPU/GPU installers, split archives, and wheel build scripts.
+- Separate build instructions; install and build steps are in the README.
 
 ## [0.6.2] - 2026-09-15
 
@@ -74,7 +85,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Model presets from Hugging Face, GitHub, and Ultralytics Platform.
 - Repeatable PyInstaller and Inno Setup build scripts with an executable launch check.
 
-[Unreleased]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/electblake/YOLO-media-organizer/compare/v0.5.2...v0.6.0

@@ -6,18 +6,30 @@
 
 ## Installer
 
-- [Windows CPU installer](https://github.com/electblake/YOLO-media-organizer/releases/download/v0.6.2/YOLO-media-organizer-0.6.2-windows-amd64-cpu-Setup.exe)
-- [Windows GPU installer](https://github.com/electblake/YOLO-media-organizer/releases/download/v0.6.2/YOLO-media-organizer-0.6.2-windows-amd64-cu130-Setup.exe) (runs faster but requires CUDA 13.0 NVIDIA Graphics)
+[Download the Windows installer](https://github.com/electblake/YOLO-media-organizer/releases/download/v0.7.0/YOLO-media-organizer-0.7.0-windows-amd64-Setup.exe).
+
+Choose CPU or NVIDIA GPU during setup. Internet access is required to download Python and dependencies. GPU mode requires an NVIDIA driver compatible with CUDA 13.0.
 
 ## Run from source
 
 ```powershell
-uv sync
-uv run yolo-media-organizer
+uv sync --locked --group cpu
+uv run --no-sync yolo-media-organizer
 ```
 
+Use `--group gpu` for NVIDIA CUDA 13.0.
+
+## Build the Windows installer
+
+Requires PowerShell 7 and Inno Setup 6.7.3.
+
+```powershell
+./scripts/build-setup.ps1
+```
+
+The installer is written to `dist/`.
+
 - [Models](Models.md)
-- [Build instructions](BUILD.md)
 - [CHANGELOG.md](CHANGELOG.md)
 
 ## Disclaimer
