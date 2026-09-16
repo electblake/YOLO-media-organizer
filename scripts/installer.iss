@@ -1,5 +1,5 @@
 #define AppName "YOLO Media Organizer"
-#define Artifact "YOLO-media-organizer-" + AppVersion + "-windows-" + AppArchitecture
+#define Artifact "YOLO-media-organizer-" + AppVersion + "-windows-" + AppArchitecture + "-" + AppBackend
 #define ExeName Artifact + ".exe"
 
 [Setup]

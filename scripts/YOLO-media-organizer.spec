@@ -1,3 +1,4 @@
+import os
 import platform
 import tomllib
 from pathlib import Path
@@ -10,7 +11,7 @@ from PyInstaller.utils.win32.versioninfo import (
 root = Path(SPECPATH).parent
 project = tomllib.loads((root / "pyproject.toml").read_text())["project"]
 version = project["version"]
-artifact = f"YOLO-media-organizer-{version}-windows-{platform.machine().lower()}"
+artifact = f"YOLO-media-organizer-{version}-windows-{platform.machine().lower()}-{os.environ['YOLO_BUILD_BACKEND']}"
 version_tuple = tuple(int(part) for part in version.split(".")) + (0,)
 version_info = VSVersionInfo(
     ffi=FixedFileInfo(filevers=version_tuple, prodvers=version_tuple, mask=0x3f, flags=0,

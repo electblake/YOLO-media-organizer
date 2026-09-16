@@ -29,6 +29,10 @@ build = [
     "pyinstaller==6.22.3",
 ]
 dev = ["pytest>=8", "ruff>=0.16.7"]
+cpu = [
+    "torch",
+    "torchvision",
+]
 gpu = [
     "torch",
     "torchvision",
@@ -37,6 +41,14 @@ gpu = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.uv]
+conflicts = [[{ group = "cpu" }, { group = "gpu" }]]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [[tool.uv.index]]
 name = "pytorch-cu130"
 url = "https://download.pytorch.org/whl/cu130"
@@ -44,9 +56,11 @@ explicit = true
 
 [tool.uv.sources]
 torch = [
+  { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
   { index = "pytorch-cu130", group = "gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 torchvision = [
+  { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
   { index = "pytorch-cu130", group = "gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
