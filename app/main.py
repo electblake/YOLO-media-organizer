@@ -101,8 +101,6 @@ class MainView(ttk.Frame):
         self.tabs = ttk.Notebook(self.main_panes)
         self.main_panes.add(self.tabs, weight=0)
         self.scan_tab = ttk.Frame(self.tabs)
-        self.scan_tab.columnconfigure(0, weight=1)
-        self.scan_tab.rowconfigure(2, weight=1)
         self.models_tab = ttk.Frame(self.tabs, padding=12)
         self.models_tab.columnconfigure(0, weight=1)
         self.models_tab.rowconfigure(2, weight=1)
@@ -139,7 +137,7 @@ class MainView(ttk.Frame):
         self.save_settings_button.grid(row=12, column=0, sticky="w")
 
         form = ttk.Frame(self.scan_tab, padding=12)
-        form.grid(row=1, column=0, sticky="ew")
+        form.pack(fill="x")
         form.columnconfigure(1, weight=1)
         self.cfg_hints = {}
         for row, (title, variable, folder) in enumerate([
@@ -294,19 +292,17 @@ class MainView(ttk.Frame):
         )
         self.open_run_button.pack(side="left", padx=(8, 0))
         config_actions = ttk.Frame(self.scan_tab)
-        config_actions.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 0))
+        config_actions.pack(side="bottom", fill="x", padx=12, pady=(6, 12), before=form)
         self.save_config_button = ttk.Button(config_actions, text="Save config", command=self.save_config)
         self.save_config_button.pack(side="left", padx=(0, 4))
-        self.reset_config_button = ttk.Button(config_actions, text="Reset config", command=self.reset_config)
-        self.reset_config_button.pack(side="left", padx=4)
-        self.default_config_button = ttk.Button(config_actions, text="Set default config", command=self.set_default_config)
-        self.default_config_button.pack(side="left", padx=4)
+        self.reset_defaults_button = ttk.Button(config_actions, text="Restore Defaults", command=self.reset_defaults)
+        self.reset_defaults_button.pack(side="left", padx=4)
         ttk.Button(actions, text="Open media folder", command=lambda: os.startfile(self.source.get())).pack(side="right")
         ttk.Label(actions, textvariable=self.media_stats).pack(side="right", padx=(8, 12))
         ttk.Label(actions, textvariable=self.inference_device).pack(side="right", padx=(8, 0))
 
         label_panel = ttk.LabelFrame(self.scan_tab, text="Organize Files", padding=8)
-        label_panel.grid(row=2, column=0, sticky="nsew")
+        label_panel.pack(fill="both", expand=True)
         label_panel.rowconfigure(2, weight=1)
         label_panel.columnconfigure(0, weight=1)
         filters = ttk.Frame(label_panel)
@@ -440,7 +436,7 @@ class MainView(ttk.Frame):
         self.settings.save_state(self.current_state())
         self.status.set("Configuration saved.")
 
-    def reset_config(self):
+    def reset_defaults(self):
         self.settings.reset_state()
         values = self.settings.values
         for name in ("source", "model", "crop_model", "scan_confidence", "move_confidence", "min_predictions",
@@ -461,10 +457,6 @@ class MainView(ttk.Frame):
         self.main_panes.sashpos(0, values.main_divider)
         self.refresh_results()
         self.status.set("Configuration reset to built-in defaults. Click Save config to keep these values.")
-
-    def set_default_config(self):
-        self.settings.set_default(self.current_state())
-        self.status.set("Default configuration saved.")
 
     def save_settings(self):
         self.settings.save_config(

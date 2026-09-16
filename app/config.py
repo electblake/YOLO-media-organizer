@@ -80,13 +80,6 @@ class Settings:
     def reset_state(self):
         self.values = AppConfig.model_validate(self.values.model_dump() | AppState().model_dump())
 
-    def set_default(self, state: AppState):
-        self.config = AppConfig.model_validate(self.config.model_dump() | state.model_dump())
-        self.config.save(self.config_path)
-        self.state = AppState()
-        self.state.save(self.state_path)
-        self.values = self.config.model_copy(deep=True)
-
     def save_config(self, **changes):
         self.config = AppConfig.model_validate(self.config.model_dump() | changes)
         self.config.save(self.config_path)

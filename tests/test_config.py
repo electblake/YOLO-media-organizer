@@ -92,7 +92,7 @@ def test_first_launch_reset_does_not_create_saved_files(tmp_path):
     assert not settings.state_path.exists()
 
 
-def test_ui_manual_save_reset_and_default_without_auto_saving(tmp_path):
+def test_ui_manual_save_and_reset_defaults_without_auto_saving(tmp_path):
     script = '''
 import sys
 import tkinter as tk
@@ -158,7 +158,7 @@ assert view.sort_columns == {"confidence": False}
 assert view.tree.item(str(result.source), "open")
 assert restored.state_path.read_text() == saved
 assert restored.config.model == "configured"
-view.reset_config_button.invoke()
+view.reset_defaults_button.invoke()
 assert view.model.get() == AppState().model
 assert view.move_confidence.get() == AppState().move_confidence
 for name in scan_values:
@@ -169,20 +169,11 @@ assert restored.state_path.read_text() == saved
 assert Settings(directory, {}).values.model == "custom"
 assert view.ultralytics_api_key.get() == "manual-test-key"
 assert restored.values.ultralytics_api_key == "manual-test-key"
-view.model.set("new-default")
-view.move_confidence.set(.42)
-assert restored.config.model == "configured"
-view.default_config_button.invoke()
-assert Settings(directory, {}).values.model == "new-default"
-view.model.set("unsaved")
-view.reset_config_button.invoke()
-assert view.model.get() == AppState().model
-assert view.move_confidence.get() == AppState().move_confidence
 view.model.set("discard-on-close")
 before_close = restored.state_path.read_text()
 view.close()
 assert restored.state_path.read_text() == before_close
-assert Settings(directory, {}).values.model == "new-default"
+assert Settings(directory, {}).values.model == "custom"
 '''
     subprocess.run([sys.executable, "-c", script, str(tmp_path)], check=True)
 
@@ -219,9 +210,13 @@ for tab in (view.settings_tab, view.extras_tab, view.scan_tab):
     root.update()
     assert all(widget.winfo_ismapped() for widget in (
         view.scan_button, view.move_button, view.stop_button,
-        view.save_config_button, view.progress, view.tree,
+        view.progress, view.tree,
     ))
+    for button in (view.save_config_button, view.reset_defaults_button):
+        assert bool(button.winfo_ismapped()) == (tab is view.scan_tab)
 assert settings.state_path.read_bytes() == saved
+assert [button.cget("text") for button in view.save_config_button.master.winfo_children()] == ["Save config", "Restore Defaults"]
+assert view.save_config_button.winfo_rooty() >= view.label_canvas.master.winfo_rooty() + view.label_canvas.master.winfo_height()
 view.save_config()
 view.executor.shutdown(wait=False)
 view.destroy()
@@ -234,12 +229,15 @@ root.geometry("920x620")
 root.update()
 assert view.main_panes.sashpos(0) == 500
 assert view.tree.winfo_width() > 300
+for button in (view.save_config_button, view.reset_defaults_button):
+    assert button.winfo_ismapped()
+    assert button.winfo_rooty() + button.winfo_height() <= view.scan_tab.winfo_rooty() + view.scan_tab.winfo_height()
 view.inputs[0].focus_force()
 root.update()
 view.inputs[0].event_generate("<Tab>")
 root.update()
 assert root.focus_get() == view.inputs[1]
-view.reset_config()
+view.reset_defaults()
 root.update()
 assert view.main_panes.sashpos(0) == AppState().main_divider
 assert Settings(Path(sys.argv[1]), {}).values.main_divider == 500

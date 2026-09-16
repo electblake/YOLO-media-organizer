@@ -129,7 +129,7 @@ view.save_config()
 restored = Settings(directory, {})
 assert restored.values.quarantine_video_failures
 assert restored.values.quarantine_folder == "bad videos"
-view.reset_config()
+view.reset_defaults()
 assert not view.quarantine_video_failures.get()
 assert view.quarantine_folder.get() == "quarantine"
 assert view.quarantine_entry.instate(["disabled"])

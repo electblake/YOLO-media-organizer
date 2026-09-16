@@ -37,7 +37,7 @@ for values, expected in [
     assert options.save_txt is values.get("save_txt", False)
     assert options.save is values.get("save_results", False)
     view.set_busy(False)
-view.reset_config_button.invoke()
+view.reset_defaults_button.invoke()
 assert not view.save_results.get()
 assert not view.save_crop.get() and not view.save_txt.get()
 assert view.stream.get() is True

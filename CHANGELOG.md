@@ -2,8 +2,6 @@
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-09-16
-
 ### Added
 
 - Configure inference batch size, precision, compilation, image size, and video stride; save and reset these options with the app configuration.
@@ -12,16 +10,27 @@
 - Include scan options, runtime versions, model details, inference arguments, and completion details in scan logs.
 - Show the app version in the window title and heading, with a project website button.
 - Add the RoyRud1902/yolo11n-text model preset.
+- Configure result streaming and live-stream buffering, with hover hints for inference and output settings.
+- Save annotated results, object crops, and text labels in a persistent run directory for each media folder; open it with Open run results.
+- Preview saved crops for a label in a scrollable gallery when hovering over a prediction's label.
+- Optionally move videos that fail to open into a configurable quarantine subfolder and re-run the scan.
 
 ### Changed
 
 - Rename the Sort Media tab to Organize and keep scan controls above the resizable label area.
+- Move model selection and scan confidence controls to the Models tab.
 - Report the number of files moved, or indicate when no files were moved.
+- Resolve installer dependencies during setup without requiring or bundling `uv.lock`.
 
 ### Fixed
 
 - Display scan failures and their tracebacks in the console and log while preserving the original failure.
 - Disable file organization while busy or when no files remain in the move plan.
+
+### Removed
+
+- Remove recursive-scan controls and the `--recursive` / `--no-recursive` arguments; scans use the selected folder's immediate media files.
+- Stop tracking `uv.lock` in the repository.
 
 ## [0.7.3] - 2026-09-15
 
