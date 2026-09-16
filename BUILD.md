@@ -2,7 +2,7 @@
 
 ## Build Windows artifacts
 
-Build both CPU and CUDA 13.0 bundles, then create their installers and portable ZIPs:
+Build both CPU and CUDA 13.0 bundles, then create their installers:
 
 ```powershell
 ./scripts/build.ps1
@@ -10,7 +10,8 @@ Build both CPU and CUDA 13.0 bundles, then create their installers and portable 
 ```
 
 To build one variant, pass `-Backend cpu` or `-Backend gpu` to both scripts.
-Artifacts in `dist/` are labeled `cpu` or `cu130`, with separate `SHA256SUMS-cpu.txt` and `SHA256SUMS-cu130.txt` files.
+Installers in `dist/` are labeled `cpu` or `cu130`. Releases include only these two installers.
+Installers larger than 500 MB are packaged into 500 MB 7z volumes; download every part and extract `.7z.001` to recover the installer.
 
 ## Build Pip Wheel
 

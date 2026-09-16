@@ -10,12 +10,13 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 ### Added
 
 - CPU and CUDA 13.0 dependency groups with matching PyTorch and torchvision builds.
-- Separate CPU and CUDA 13.0 Windows installers, portable ZIPs, and SHA-256 checksums.
+- Separate CPU and CUDA 13.0 Windows installers.
 - Python wheel build script and installation instructions.
 
 ### Changed
 
 - Build both Windows variants by default in isolated environments, with `-Backend cpu` or `-Backend gpu` to select one.
+- Publish only installers, splitting files larger than 500 MB into 7z volumes.
 - Moved build instructions from README.md to BUILD.md.
 
 ## [0.6.1] - 2026-09-15

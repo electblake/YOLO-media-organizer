@@ -14,7 +14,9 @@ foreach ($variant in $Backend) {
     $backendLabel = @{ cpu = "cpu"; gpu = "cu130" }[$variant]
     $artifact = "YOLO-media-organizer-$version-windows-$architecture-$backendLabel"
     & $isccPath "/DAppVersion=$version" "/DAppArchitecture=$architecture" "/DAppBackend=$backendLabel" "scripts/installer.iss"
-    & $python -c "import shutil; shutil.make_archive('dist/$artifact-portable', 'zip', 'dist', '$artifact')"
-    $artifacts = @("dist/$artifact-Setup.exe", "dist/$artifact-portable.zip")
-    $artifacts | Get-FileHash -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content -Encoding ascii "dist/SHA256SUMS-$backendLabel.txt"
+    if ((Get-Item "dist/$artifact-Setup.exe").Length -gt 500MB) {
+        Push-Location dist
+        7z a -t7z -mx=0 -v500m "$artifact-Setup.7z" "$artifact-Setup.exe"
+        Pop-Location
+    }
 }
