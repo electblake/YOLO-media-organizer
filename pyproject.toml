@@ -13,6 +13,8 @@ dependencies = [
     "tqdm>=4.67",
     "dill>=0.4.1",
     "pydantic>=2,<3",
+    "torch",
+    "torchvision",
 ]
 
 [project.scripts]
@@ -30,25 +32,9 @@ assets = ["Ymo.ico"]
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.16.7"]
-cpu = [
-    "torch",
-    "torchvision",
-]
-gpu = [
-    "torch",
-    "torchvision",
-]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-
-[tool.uv]
-conflicts = [[{ group = "cpu" }, { group = "gpu" }]]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cu130"
@@ -57,12 +43,10 @@ explicit = true
 
 [tool.uv.sources]
 torch = [
-  { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-  { index = "pytorch-cu130", group = "gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+  { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 torchvision = [
-  { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-  { index = "pytorch-cu130", group = "gpu", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+  { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 [tool.ruff]

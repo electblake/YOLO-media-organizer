@@ -29,7 +29,6 @@ class MainView(ttk.Frame):
         self.stop = Event()
         self.results = []
         self.total_media = 0
-        self.failed_files = 0
         self.move_plan = []
         self.moved_results = {}
         self.label_vars = {}
@@ -41,6 +40,8 @@ class MainView(ttk.Frame):
         self.column_titles = {}
         self.original_rows = {"": []}
         self.data_dir = settings.config_path.parent
+        self.log_path = None
+        self.log_position = 0
         self.source = tk.StringVar(self, value=values.source)
         self.model = tk.StringVar(self, value=values.model)
         self.crop_model = tk.StringVar(self, value=values.crop_model)
@@ -54,7 +55,7 @@ class MainView(ttk.Frame):
         self.videos = tk.BooleanVar(self, value=values.videos)
         self.status = tk.StringVar(self, value="Choose a media folder. Destinations are model-label folders inside it.")
         self.media_stats = tk.StringVar(self, value="0 files · 0 labels · 0 to move (0%)")
-        self.scan_error = tk.StringVar(self)
+        self.inference_device = tk.StringVar(self, value="Device: not started")
         self.inputs = []
 
         heading = ttk.Frame(self)
@@ -208,6 +209,7 @@ class MainView(ttk.Frame):
         self.default_config_button.pack(side="left", padx=4)
         ttk.Button(actions, text="Open media folder", command=lambda: os.startfile(self.source.get())).pack(side="right")
         ttk.Label(actions, textvariable=self.media_stats).pack(side="right", padx=(8, 12))
+        ttk.Label(actions, textvariable=self.inference_device).pack(side="right", padx=(8, 0))
 
         label_panel = ttk.LabelFrame(self.scan_panes, text="Organize Files", padding=8)
         self.scan_panes.add(label_panel, weight=1)
@@ -282,7 +284,16 @@ class MainView(ttk.Frame):
         ttk.Label(footer, textvariable=self.status).grid(row=0, column=0, sticky="w")
         self.progress = ttk.Progressbar(footer, mode="determinate")
         self.progress.grid(row=1, column=0, sticky="ew", pady=(6, 0))
-        ttk.Label(footer, textvariable=self.scan_error, wraplength=850).grid(row=2, column=0, sticky="w")
+        self.console_frame = ttk.LabelFrame(self, text="Console")
+        self.console_frame.grid(row=5, column=0, sticky="ew", pady=(12, 0))
+        self.console_frame.columnconfigure(0, weight=1)
+        self.log_console = tk.Text(
+            self.console_frame, height=8, wrap="none", state="disabled", font="TkFixedFont",
+        )
+        self.log_console.grid(row=0, column=0, sticky="nsew")
+        console_scroll = ttk.Scrollbar(self.console_frame, orient="vertical", command=self.log_console.yview)
+        console_scroll.grid(row=0, column=1, sticky="ns")
+        self.log_console.configure(yscrollcommand=console_scroll.set)
         for variable in [self.move_confidence, self.min_predictions, self.max_predictions]:
             variable.trace_add("write", self.refresh_results)
         self.update_sort_headings()
@@ -584,9 +595,8 @@ class MainView(ttk.Frame):
         self.move_plan = []
         self.moved_results.clear()
         self.total_media = 0
-        self.failed_files = 0
-        self.scan_error.set("")
         self.media_stats.set("0 files · 0 labels · 0 to move (0%)")
+        self.inference_device.set("Device: detecting…")
         for check in self.label_checks.values():
             check.destroy()
         self.label_checks.clear()
@@ -595,17 +605,29 @@ class MainView(ttk.Frame):
         self.original_rows = {"": []}
         self.tree.delete(*self.tree.get_children())
         self.stop.clear()
-        self.progress["value"] = 0
+        logs = self.data_dir / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        self.log_path = logs / (datetime.now(UTC).strftime("scan-%Y%m%d-%H%M%S-%f") + ".log")
+        self.log_path.touch()
+        self.log_position = 0
+        self.console_frame.configure(text=f"Console · {self.log_path}")
+        self.log_console.configure(state="normal")
+        self.log_console.delete("1.0", "end")
+        self.log_console.configure(state="disabled")
+        self.progress.configure(mode="indeterminate", value=0, maximum=100)
+        self.progress.start()
         self.operation = "scan"
         self.set_busy(True)
-        self.future = self.executor.submit(scan, self.options, self.data_dir / "index.sqlite3", self.stop, self.emit)
+        self.future = self.executor.submit(
+            scan, self.options, self.data_dir / "index.sqlite3", self.log_path, self.stop, self.emit,
+        )
         self.after(75, self.poll)
 
     def start_move(self):
         self.stop.clear()
         self.operation = "move"
         self.set_busy(True)
-        self.progress.configure(value=0, maximum=len(self.move_plan))
+        self.progress.configure(mode="determinate", value=0, maximum=len(self.move_plan))
         self.status.set("Moving original media")
         journal = self.data_dir / "moves" / (datetime.now(UTC).strftime("%Y%m%d-%H%M%S-%f") + ".csv")
         self.future = self.executor.submit(move_media, self.move_plan, journal, self.stop, self.emit)
@@ -614,7 +636,21 @@ class MainView(ttk.Frame):
     def emit(self, kind, payload):
         self.events.put((kind, payload))
 
+    def refresh_console(self):
+        if self.log_path is None:
+            return
+        with self.log_path.open(encoding="utf-8") as stream:
+            stream.seek(self.log_position)
+            output = stream.read()
+            self.log_position = stream.tell()
+        if output:
+            self.log_console.configure(state="normal")
+            self.log_console.insert("end", output)
+            self.log_console.see("end")
+            self.log_console.configure(state="disabled")
+
     def poll(self):
+        self.refresh_console()
         rows_changed = False
         for _ in range(100):
             if self.events.empty():
@@ -623,17 +659,19 @@ class MainView(ttk.Frame):
             if kind == "status":
                 self.status.set(payload)
             elif kind == "total":
-                self.progress["maximum"] = payload
                 self.total_media = payload
                 rows_changed = True
+                self.progress.stop()
+                self.progress.configure(mode="determinate", maximum=max(payload, 1), value=0)
+            elif kind == "scan_progress":
+                completed, total, name = payload
+                self.progress["value"] = completed
+                self.status.set(f"Scanning ({completed}/{total}) {name}")
+            elif kind == "device":
+                self.inference_device.set(f"Device: {payload}")
             elif kind == "item":
                 rows_changed = True
                 self.results.append(payload)
-                self.progress["value"] += 1
-            elif kind == "error":
-                self.failed_files += 1
-                self.scan_error.set(f"{self.failed_files} failed · Last error: {payload}")
-                self.progress["value"] += 1
             elif kind == "moved":
                 rows_changed = True
                 self.moved_results[payload.source] = payload
@@ -644,12 +682,14 @@ class MainView(ttk.Frame):
             self.after(75, self.poll)
             return
         self.set_busy(False)
+        if self.operation == "scan":
+            self.progress.stop()
         result = self.future.result()
+        self.refresh_console()
         self.refresh_results()
         if self.operation == "scan":
-            self.status.set(f"{'Stopped' if self.stop.is_set() else 'Preview ready'} · {len(self.results)} media")
-            if self.failed_files:
-                self.status.set(f"{self.status.get()} · {self.failed_files} failed")
+            self.progress.configure(mode="determinate", maximum=100, value=0 if self.stop.is_set() else 100)
+            self.status.set(f"{'Stopped' if self.stop.is_set() else 'Preview ready'} · {len(self.results)} files")
         else:
             self.status.set(f"{'Stopped' if self.stop.is_set() else 'Complete'} · {result} files moved · Journal: {self.data_dir / 'moves'}")
 

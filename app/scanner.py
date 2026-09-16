@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import shutil
 import sqlite3
 from contextlib import closing
@@ -14,18 +15,22 @@ from urllib.request import urlretrieve
 from zipfile import ZipFile
 
 import cv2
+import torch
 import ultralytics
 from huggingface_hub import hf_hub_download
 from PIL import Image, ImageOps
 from tqdm import tqdm
 from ultralytics import YOLO
+from ultralytics.data.utils import IMG_FORMATS, VID_FORMATS
+from ultralytics.utils import LOGGER
 from ultralytics.utils.checks import check_file
 
 from app.config import CONFIG_DIR, HF_CACHE_DIR, MODELS_DIR
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".wmv", ".mpeg", ".mpg", ".mov", ".m4v", ".mkv", ".webm"}
-# TODO: convert MODEL_PRESETS to a pydantic model per model preset that can be saved into a single models.json app config file with the current used as default saved as json into repo
+# TODO: convert MODEL_PRESETS to pydantic models saved in one models.json app config,
+# with the current values committed as the default JSON.
 MODEL_PRESETS = {
     "rpi5/person-detection/yolov8nbest": "ul://rpi5/person-detection/yolov8nbest",
     "NguyenToanLe/Age-Gender-Detection-YOLO / age": "https://media.githubusercontent.com/media/NguyenToanLe/Age-Gender-Detection-YOLO/main/models/age.pt",
@@ -219,63 +224,89 @@ def label_folder(label: str):
     return encoded
 
 
-def scan(options: ScanOptions, index_path: Path, stop: Event, emit):
-    emit("status", "Loading YOLO models")
-    model = load_model(options.model)
-    crop_model = load_model(options.crop_model) if options.crop_model else None
-    signature = asdict(options)
-    signature.pop("source")
-    signature["ultralytics"] = ultralytics.__version__
-    signature["pipeline_version"] = 2
-    signature["weights"] = []
-    for loaded in [model] + ([crop_model] if crop_model is not None else []):
-        weights = Path(loaded.ckpt_path if loaded.ckpt_path else loaded.model).resolve()
-        stat = weights.stat()
-        signature["weights"].append([str(weights), stat.st_size, stat.st_mtime_ns])
-    signature = json.dumps(signature, sort_keys=True)
-    index_path.parent.mkdir(parents=True, exist_ok=True)
-    results = []
-    with closing(sqlite3.connect(index_path)) as database:
-        database.execute("""CREATE TABLE IF NOT EXISTS media (
-            path TEXT NOT NULL, signature TEXT NOT NULL, size INTEGER NOT NULL,
-            modified INTEGER NOT NULL, predictions TEXT NOT NULL, frame INTEGER,
-            PRIMARY KEY(path, signature))""")
-        emit("status", "Discovering media")
-        label_folders = {options.source / label_folder(name) for name in model.names.values()}
-        files = list(discover(options, label_folders))
-        emit("total", len(files))
-        for index, path in enumerate(files, start=1):
-            if stop.is_set():
-                break
-            emit("status", f"Scanning ({index}/{len(files)}) {path.name}")
-            try:
+def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, emit):
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_handler = logging.FileHandler(log_path, encoding="utf-8")
+    log_handler.setFormatter(logging.Formatter("%(message)s"))
+    LOGGER.addHandler(log_handler)
+    try:
+        formats = IMG_FORMATS | VID_FORMATS
+        total = sum(
+            path.is_file() and path.suffix.removeprefix(".").lower() in formats
+            for path in options.source.iterdir()
+        )
+        emit("total", total)
+        emit("status", "Loading YOLO models")
+        model = load_model(options.model)
+        crop_model = load_model(options.crop_model) if options.crop_model else None
+        signature = asdict(options)
+        signature.pop("source")
+        signature["ultralytics"] = ultralytics.__version__
+        signature["pipeline_version"] = 2
+        signature["weights"] = []
+        for loaded in [model] + ([crop_model] if crop_model is not None else []):
+            weights = Path(loaded.ckpt_path if loaded.ckpt_path else loaded.model).resolve()
+            stat = weights.stat()
+            signature["weights"].append([str(weights), stat.st_size, stat.st_mtime_ns])
+        signature = json.dumps(signature, sort_keys=True)
+        index_path.parent.mkdir(parents=True, exist_ok=True)
+        results = []
+        with closing(sqlite3.connect(index_path)) as database:
+            database.execute("""CREATE TABLE IF NOT EXISTS media (
+                path TEXT NOT NULL, signature TEXT NOT NULL, size INTEGER NOT NULL,
+                modified INTEGER NOT NULL, predictions TEXT NOT NULL, frame INTEGER,
+                PRIMARY KEY(path, signature))""")
+            kwargs = {"verbose": True, "save": False, "conf": options.scan_confidence, "stream": True}
+            if options.device:
+                kwargs["device"] = options.device
+            status = f"Scanning (0/{total})"
+            emit("status", status)
+            indexed = {}
+            device_reported = False
+            inference = (crop_model if crop_model is not None else model).predict(source=str(options.source), **kwargs)
+            for inference_result in inference:
+                if not device_reported:
+                    output = inference_result.probs if inference_result.probs is not None else (
+                        inference_result.obb if inference_result.obb is not None else inference_result.boxes
+                    )
+                    device = output.data.device
+                    device_name = str(device)
+                    if device.type == "cuda":
+                        device_name += f" ({torch.cuda.get_device_name(device)})"
+                    LOGGER.info(f"Inference device: {device_name}")
+                    emit("device", device_name)
+                    device_reported = True
+                path = Path(inference_result.path)
+                path = (path if path.is_absolute() else options.source / path).resolve()
+                first_result_for_path = path not in indexed
                 stat = path.stat()
-            except OSError as error:
-                message = f"{path}: {type(error).__name__}: {error}"
-                print(message, flush=True)
-                emit("error", message)
-                continue
-            cached = database.execute(
-                "SELECT predictions, frame FROM media WHERE path=? AND signature=? AND size=? AND modified=?",
-                (str(path), signature, stat.st_size, stat.st_mtime_ns),
-            ).fetchone()
-            if cached is not None:
-                predictions, frame_number = json.loads(cached[0]), cached[1]
-            else:
-                try:
-                    image, frame_number = media_image(path, options.frame_percentage)
-                    predictions = predict_image(model, crop_model, image, options)
-                except Exception as error:
-                    message = f"{path}: {type(error).__name__}: {error}"
-                    print(message, flush=True)
-                    emit("error", message)
-                    continue
+                if crop_model is None:
+                    predictions = result_labels(inference_result)
+                else:
+                    image = Image.fromarray(cv2.cvtColor(inference_result.orig_img, cv2.COLOR_BGR2RGB))
+                    crops = [image.crop(tuple(box)) for box in inference_result.boxes.xyxy.tolist()]
+                    predictions = [
+                        prediction
+                        for crop in crops
+                        for result in model.predict(source=crop, **kwargs)
+                        for prediction in result_labels(result)
+                    ]
+                predictions.sort(key=lambda item: (-item["confidence"], item["label"]))
                 database.execute(
                     "INSERT OR REPLACE INTO media VALUES (?, ?, ?, ?, ?, ?)",
-                    (str(path), signature, stat.st_size, stat.st_mtime_ns, json.dumps(predictions), frame_number),
+                    (str(path), signature, stat.st_size, stat.st_mtime_ns, json.dumps(predictions), None),
                 )
-                database.commit()
-            result = MediaResult(path, None, None, predictions, None, cached is not None, frame_number)
-            results.append(result)
-            emit("item", result)
-    return results
+                indexed[path] = MediaResult(path, None, None, predictions, None, False, None)
+                if first_result_for_path:
+                    completed = len(indexed)
+                    emit("scan_progress", (completed, total, path.name))
+                if stop.is_set():
+                    break
+            database.commit()
+            results = list(indexed.values())
+            for result in results:
+                emit("item", result)
+        return results
+    finally:
+        LOGGER.removeHandler(log_handler)
+        log_handler.close()

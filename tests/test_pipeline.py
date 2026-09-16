@@ -1,5 +1,6 @@
 import csv
 from dataclasses import replace
+from pathlib import Path
 from threading import Event
 from types import SimpleNamespace
 
@@ -80,30 +81,83 @@ def test_index_reuse_and_invalidation(tmp_path, monkeypatch):
     Image.new("RGB", (16, 16)).save(image)
     weights = tmp_path / "test.pt"
     weights.write_bytes(b"weights")
-    monkeypatch.setattr(scanner, "load_model", lambda _: SimpleNamespace(ckpt_path=str(weights), names={0: "cat"}))
+    names = {0: "cat"}
     calls = []
 
-    def predict(*args):
+    def predict(source, **kwargs):
         calls.append(True)
-        return [{"label": "cat", "confidence": 0.8}]
+        return [Results(
+            np.array(Image.open(path)), str(path), names, probs=torch.tensor([1.0]),
+        ) for path in sorted(Path(source).iterdir()) if path.suffix == ".png"]
 
-    monkeypatch.setattr(scanner, "predict_image", predict)
+    monkeypatch.setattr(scanner, "load_model", lambda _: SimpleNamespace(
+        ckpt_path=str(weights), names=names, predict=predict,
+    ))
     options = ScanOptions(source)
     index = tmp_path / "index.db"
 
     def run(settings=options):
-        return scanner.scan(settings, index, Event(), lambda *_: None)[0]
-
+        return scanner.scan(settings, index, tmp_path / "scan.log", Event(), lambda *_: None)[0]
     assert run().destination is None
-    assert run().cached
-    assert len(calls) == 1
+    assert not run().cached
+    assert len(calls) == 2
     Image.new("RGB", (40, 40)).save(image)
     assert not run().cached
     weights.write_bytes(b"new weights")
     assert not run().cached
     assert not run(replace(options, frame_percentage=75)).cached
     assert not run(replace(options, scan_confidence=0.1)).cached
-    assert len(calls) == 5
+    assert len(calls) == 6
+
+
+def test_scan_passes_media_folder_to_one_ultralytics_run(tmp_path, monkeypatch):
+    source = tmp_path / "source"
+    source.mkdir()
+    for index in range(18):
+        Image.new("RGB", (16, 16), (index, 0, 0)).save(source / f"{index:02}.png")
+    (source / "nested").mkdir()
+    Image.new("RGB", (16, 16)).save(source / "nested" / "nested.png")
+    (source / "ignore.txt").write_text("not media")
+    weights = tmp_path / "test.pt"
+    weights.write_bytes(b"weights")
+    names = {0: "cat", 1: "dog"}
+    calls = []
+
+    def predict(source, **kwargs):
+        calls.append((source, kwargs))
+        scanner.LOGGER.info("native verbose output")
+        results = [
+            Results(np.array(Image.open(path)), str(path), names, probs=torch.tensor([0.8, 0.2]))
+            for path in sorted(Path(source).iterdir()) if path.suffix == ".png"
+        ]
+        return [results[0], *results]
+
+    monkeypatch.setattr(scanner, "load_model", lambda _: SimpleNamespace(
+        ckpt_path=str(weights), names=names, predict=predict,
+    ))
+    events = []
+    log_path = tmp_path / "scan.log"
+    results = scanner.scan(
+        ScanOptions(source), tmp_path / "index.db", log_path, Event(), lambda *event: events.append(event),
+    )
+    assert len(calls) == 1
+    assert calls[0][0] == str(source)
+    assert calls[0][1]["stream"] is True
+    assert calls[0][1]["conf"] == 0.25
+    assert calls[0][1]["verbose"] and not calls[0][1]["save"]
+    assert len(results) == 18
+    assert all(not result.cached and result.predictions[0]["label"] == "cat" for result in results)
+    assert [payload for kind, payload in events if kind == "status"][-1] == "Scanning (0/18)"
+    assert ("total", 18) in events
+    assert ("device", "cpu") in events
+    assert [kind for kind, _ in events][-18:] == ["item"] * 18
+    assert [payload[:2] for kind, payload in events if kind == "scan_progress"] == [
+        (index, 18) for index in range(1, 19)
+    ]
+    log = log_path.read_text(encoding="utf-8")
+    assert "native verbose output" in log
+    assert "Inference device: cpu" in log
+    assert "Scanning (18/18)" not in log
 
 
 def test_moves_originals_and_journals_without_overwriting(tmp_path):
@@ -126,9 +180,8 @@ def test_moves_originals_and_journals_without_overwriting(tmp_path):
 
 def test_loaded_model_labels_determine_folders_and_rescan_exclusions(tmp_path, monkeypatch):
     source = tmp_path / "media"
-    nested = source / "nested"
-    nested.mkdir(parents=True)
-    image = nested / "sample.png"
+    source.mkdir()
+    image = source / "sample.png"
     Image.new("RGB", (16, 16)).save(image)
     weights = tmp_path / "model.pt"
     weights.write_bytes(b"test weights")
@@ -136,18 +189,18 @@ def test_loaded_model_labels_determine_folders_and_rescan_exclusions(tmp_path, m
     model = SimpleNamespace(
         ckpt_path=str(weights), names=names,
         predict=lambda source, **kwargs: [Results(
-            np.array(source), "sample.png", names, probs=torch.tensor([0.1, 0.9])
-        )],
+            np.array(Image.open(path)), str(path), names, probs=torch.tensor([0.1, 0.9])
+        ) for path in sorted(Path(source).iterdir()) if path.suffix == ".png"],
     )
     monkeypatch.setattr(scanner, "load_model", lambda _: model)
     options = ScanOptions(source)
-    results = scanner.scan(options, tmp_path / "index.db", Event(), lambda *_: None)
+    results = scanner.scan(options, tmp_path / "index.db", tmp_path / "scan.log", Event(), lambda *_: None)
     assert results[0].predictions[0]["label"] == "custom-class-B"
     assert results[0].destination is None
     planned = plan_moves(results, source, {names[1]}, 0.5)
-    assert planned[0].destination == source / names[1] / "nested" / "sample.png"
+    assert planned[0].destination == source / names[1] / "sample.png"
     move_media(planned, tmp_path / "moves.csv", Event(), lambda *_: None)
-    assert scanner.scan(options, tmp_path / "index.db", Event(), lambda *_: None) == []
+    assert scanner.scan(options, tmp_path / "index.db", tmp_path / "scan.log", Event(), lambda *_: None) == []
 
 
 def test_stop_and_unclassified_media_stay_in_place(tmp_path):

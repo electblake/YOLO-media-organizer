@@ -23,14 +23,6 @@ WizardStyle=modern
 CloseApplications=yes
 SetupLogging=yes
 
-[Types]
-Name: "cpu"; Description: "CPU"
-Name: "gpu"; Description: "NVIDIA GPU (CUDA 13.0; requires a compatible NVIDIA driver)"
-
-[Components]
-Name: "cpu"; Description: "CPU dependencies"; Types: cpu; Flags: exclusive
-Name: "gpu"; Description: "NVIDIA CUDA 13.0 dependencies"; Types: gpu; Flags: exclusive
-
 [Files]
 Source: "..\build\bootstrap\uv\uv.exe"; DestDir: "{app}\tools"; Hash: "b1645e948603c12dd741987d0c072471195e18dd299b42334477ceac694f0af8"; Flags: ignoreversion
 Source: "..\build\bootstrap\LICENSE-*"; DestDir: "{app}\tools\licenses"; Flags: ignoreversion
@@ -64,8 +56,6 @@ var
 
 procedure InitializeWizard;
 begin
-  WizardForm.SelectComponentsLabel.Caption :=
-    'Choose CPU or NVIDIA GPU. Setup downloads Python and the selected dependencies. Internet access is required.';
   DependencyLog := TNewMemo.Create(WizardForm);
   DependencyLog.Parent := WizardForm.InstallingPage;
   DependencyLog.SetBounds(0, ScaleY(100), WizardForm.InstallingPage.Width,
@@ -81,14 +71,11 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
-var
-  Backend: String;
 begin
   if CurStep = ssPostInstall then begin
-    Backend := WizardSelectedComponents(False);
-    WizardForm.StatusLabel.Caption := 'Downloading and installing Python and ' + Backend + ' dependencies...';
+    WizardForm.StatusLabel.Caption := 'Downloading and installing Python and NVIDIA CUDA dependencies...';
     ExecAndLogOutput(ExpandConstant('{cmd}'),
-      '/D /C ""' + ExpandConstant('{app}\install-runtime.cmd') + '" ' + Backend + '"',
+      '/D /C ""' + ExpandConstant('{app}\install-runtime.cmd') + '""',
       ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, DependencyExitCode, @DependencyOutput);
     Log('Dependency setup exit code: ' + IntToStr(DependencyExitCode));
   end;
