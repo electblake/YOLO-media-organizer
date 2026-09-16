@@ -699,7 +699,7 @@ name = "macholib"
 version = "1.16.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "altgraph", marker = "(sys_platform != 'linux' and sys_platform != 'win32') or (sys_platform == 'linux' and extra == 'group-20-yolo-media-organizer-cpu' and extra == 'group-20-yolo-media-organizer-gpu') or (sys_platform == 'linux' and extra != 'group-20-yolo-media-organizer-cpu' and extra != 'group-20-yolo-media-organizer-gpu') or (sys_platform == 'win32' and extra == 'group-20-yolo-media-organizer-cpu' and extra == 'group-20-yolo-media-organizer-gpu') or (sys_platform == 'win32' and extra != 'group-20-yolo-media-organizer-cpu' and extra != 'group-20-yolo-media-organizer-gpu')" },
+    { name = "altgraph", marker = "sys_platform == 'darwin' or (extra == 'group-20-yolo-media-organizer-cpu' and extra == 'group-20-yolo-media-organizer-gpu')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/10/2f/97589876ea967487978071c9042518d28b958d87b17dceb7cdc1d881f963/macholib-1.16.4.tar.gz", hash = "sha256:f408c93ab2e995cd2c46e34fe328b130404be143469e41bc366c807448979362", size = 59427, upload-time = "2025-11-22T08:28:38.373Z" }
 wheels = [
@@ -1936,7 +1936,7 @@ wheels = [
 
 [[package]]
 name = "yolo-media-organizer"
-version = "0.6.1"
+version = "0.6.2"
 source = { editable = "." }
 dependencies = [
     { name = "dill" },

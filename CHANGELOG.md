@@ -5,6 +5,19 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-09-15
+
+### Added
+
+- CPU and CUDA 13.0 dependency groups with matching PyTorch and torchvision builds.
+- Separate CPU and CUDA 13.0 Windows installers, portable ZIPs, and SHA-256 checksums.
+- Python wheel build script and installation instructions.
+
+### Changed
+
+- Build both Windows variants by default in isolated environments, with `-Backend cpu` or `-Backend gpu` to select one.
+- Moved build instructions from README.md to BUILD.md.
+
 ## [0.6.1] - 2026-09-15
 
 ### Changed
@@ -60,7 +73,8 @@ Version numbers follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html
 - Model presets from Hugging Face, GitHub, and Ultralytics Platform.
 - Repeatable PyInstaller and Inno Setup build scripts with an executable launch check.
 
-[Unreleased]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/electblake/YOLO-media-organizer/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/electblake/YOLO-media-organizer/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/electblake/YOLO-media-organizer/compare/v0.5.1...v0.5.2
