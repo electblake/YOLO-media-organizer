@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Live file totals, matched counts and percentages, and remaining files to move beside Open media folder.
+
 ## [0.7.1] - 2026-09-15
 
 ### Changed

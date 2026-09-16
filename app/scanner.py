@@ -25,6 +25,7 @@ from app.config import CONFIG_DIR, HF_CACHE_DIR, MODELS_DIR
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff", ".webp"}
 VIDEO_EXTENSIONS = {".mp4", ".avi", ".wmv", ".mpeg", ".mpg", ".mov", ".m4v", ".mkv", ".webm"}
+# TODO: convert MODEL_PRESETS to a pydantic model per model preset that can be saved into a single models.json app config file with the current used as default saved as json into repo
 MODEL_PRESETS = {
     "rpi5/person-detection/yolov8nbest": "ul://rpi5/person-detection/yolov8nbest",
     "NguyenToanLe/Age-Gender-Detection-YOLO / age": "https://media.githubusercontent.com/media/NguyenToanLe/Age-Gender-Detection-YOLO/main/models/age.pt",
