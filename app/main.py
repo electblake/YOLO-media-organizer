@@ -42,9 +42,6 @@ class MainView(ttk.Frame):
         self.busy = False
         self.operation = ""
         self.result_paths = {}
-        self.result_crops = {}
-        self.crop_preview = None
-        self.crop_preview_row = ""
         self.sort_columns = dict(values.sort_columns)
         self.column_titles = {}
         self.original_rows = {"": []}
@@ -368,10 +365,6 @@ class MainView(ttk.Frame):
         self.result_menu.add_command(label="Open file", command=self.open_result_file)
         self.result_menu.add_command(label="Open path", command=self.open_result_path)
         self.tree.bind("<Button-3>", self.show_result_menu)
-        self.tree.bind("<Motion>", self.show_crop_preview, add="+")
-        self.tree.bind("<Leave>", self.leave_crop_preview, add="+")
-        for event in ("<ButtonPress>", "<MouseWheel>", "<Unmap>", "<Destroy>"):
-            self.tree.bind(event, self.hide_crop_preview, add="+")
         footer = ttk.Frame(self)
         footer.grid(row=4, column=0, sticky="ew", pady=(12, 0))
         footer.columnconfigure(0, weight=1)
@@ -479,8 +472,6 @@ class MainView(ttk.Frame):
             self.tree.item(row, open=expanded)
 
     def refresh_results(self, *_):
-        self.hide_crop_preview()
-        self.result_crops.clear()
         visible_labels = sorted({prediction["label"] for result in self.results for prediction in result.predictions})
         for label in visible_labels:
             if label not in self.label_vars:
@@ -519,8 +510,6 @@ class MainView(ttk.Frame):
             for index, prediction in predictions:
                 child = f"{row}::match:{index}"
                 self.result_paths[child] = self.result_paths[row]
-                if result.run_path is not None:
-                    self.result_crops[child] = result.run_path / "crops" / prediction["label"]
                 self.original_rows[row].append(child)
                 self.tree.insert(row, "end", iid=child, values=(
                     "", prediction["label"], counts[prediction["label"]], prediction["confidence"], "",
@@ -530,65 +519,6 @@ class MainView(ttk.Frame):
         percentage = len(self.move_plan) / self.total_media * 100 if self.total_media else 0
         self.media_stats.set(f"{self.total_media} files · {len(visible_labels)} labels · {len(self.move_plan)} to move ({percentage:.0f}%)")
         self.move_button.state(["!disabled"] if self.move_plan and not self.busy else ["disabled"])
-
-    def show_crop_preview(self, event):
-        row = self.tree.identify_row(event.y)
-        if self.tree.identify_column(event.x) != "#2" or row not in self.result_crops:
-            self.hide_crop_preview()
-            return
-        if row == self.crop_preview_row:
-            return
-        self.hide_crop_preview()
-        paths = sorted(path for path in self.result_crops[row].glob("*") if path.suffix.lower() in Image.registered_extensions())
-        if not paths:
-            return
-        self.crop_preview = tk.Toplevel(self.tree)
-        self.crop_preview.withdraw()
-        self.crop_preview.overrideredirect(True)
-        self.crop_preview.attributes("-topmost", True)
-        canvas = tk.Canvas(self.crop_preview, width=612, height=min(360, ceil(len(paths) / 3) * 204), highlightthickness=0)
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar = ttk.Scrollbar(self.crop_preview, orient="vertical", command=canvas.yview)
-        scrollbar.pack(side="right", fill="y")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        gallery = ttk.Frame(canvas)
-        canvas.create_window(0, 0, window=gallery, anchor="nw")
-        self.crop_preview_images = []
-        for index, path in enumerate(paths):
-            with Image.open(path) as image:
-                image.thumbnail((192, 192))
-                photo = ImageTk.PhotoImage(image)
-            self.crop_preview_images.append(photo)
-            ttk.Label(gallery, image=photo, padding=6).grid(row=index // 3, column=index % 3)
-        self.crop_preview.bind("<Leave>", self.leave_crop_preview)
-        self.crop_preview.bind("<MouseWheel>", lambda event: canvas.yview_scroll(-int(event.delta / 120), "units"))
-        self.crop_preview.update_idletasks()
-        canvas.configure(scrollregion=canvas.bbox("all"))
-        x = min(event.x_root + 16, self.winfo_screenwidth() - self.crop_preview.winfo_reqwidth())
-        y = min(event.y_root + 16, self.winfo_screenheight() - self.crop_preview.winfo_reqheight())
-        self.crop_preview.geometry(f"+{max(0, x)}+{max(0, y)}")
-        self.crop_preview.deiconify()
-        self.crop_preview_row = row
-
-    def leave_crop_preview(self, event):
-        self.after(200, self.dismiss_crop_preview)
-
-    def dismiss_crop_preview(self):
-        if self.crop_preview is not None:
-            x, y = self.winfo_pointerxy()
-            popup = self.crop_preview
-            if popup.winfo_rootx() <= x < popup.winfo_rootx() + popup.winfo_width() and (
-                popup.winfo_rooty() <= y < popup.winfo_rooty() + popup.winfo_height()
-            ):
-                return
-        self.hide_crop_preview()
-
-    def hide_crop_preview(self, event=None):
-        if self.crop_preview is not None:
-            self.crop_preview.destroy()
-            self.crop_preview = None
-        self.crop_preview_images = []
-        self.crop_preview_row = ""
 
     def filter_labels(self, *_):
         query = self.label_filter.get().casefold()
@@ -768,8 +698,6 @@ class MainView(ttk.Frame):
         self.label_checks.clear()
         self.label_vars.clear()
         self.result_paths.clear()
-        self.result_crops.clear()
-        self.hide_crop_preview()
         self.original_rows = {"": []}
         self.tree.delete(*self.tree.get_children())
         self.stop.clear()

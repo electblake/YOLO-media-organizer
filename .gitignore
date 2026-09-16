@@ -42,3 +42,4 @@ coverage.xml
 Thumbs.db
 Desktop.ini
 uv.lock
+.pytest*
