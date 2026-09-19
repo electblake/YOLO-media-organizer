@@ -54,7 +54,7 @@ def test_quarantine_restarts_native_folder_loader(tmp_path, monkeypatch, good_me
         assert not (source / name).exists()
         assert (source / "bad videos" / name).read_bytes() == b"broken video"
     assert {result.source.name for result in results} == ({"photo.png", "c.avi"} if good_media else set())
-    assert len([event for event in events if event[0] == "item"]) == len(results)
+    assert not [event for event in events if event[0] == "item"]
     assert [payload for kind, payload in events if kind == "total"] == ([4, 3, 2] if good_media else [2, 1, 0])
     log = (tmp_path / "scan.log").read_text(encoding="utf-8")
     assert "FileNotFoundError: Failed to open video" in log

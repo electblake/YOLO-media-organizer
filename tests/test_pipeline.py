@@ -132,7 +132,7 @@ def test_scan_passes_media_folder_to_one_ultralytics_run(tmp_path, monkeypatch, 
     assert [payload for kind, payload in events if kind == "status"][-1] == f"Scanning (0/{count})"
     assert ("total", count) in events
     assert ("device", "cpu") in events
-    assert [kind for kind, _ in events][-count:] == ["item"] * count
+    assert not [payload for kind, payload in events if kind == "item"]
     assert [payload[:2] for kind, payload in events if kind == "scan_progress"] == [
         (index, count) for index in range(1, count + 1)
     ]
@@ -142,6 +142,7 @@ def test_scan_passes_media_folder_to_one_ultralytics_run(tmp_path, monkeypatch, 
     log = log_path.read_text(encoding="utf-8")
     assert "native verbose output" in log
     assert "Inference device: cpu" in log
+    assert f"Inference completed: {count} files indexed" in log
     assert f"Scanning ({count}/{count})" not in log
 
 

@@ -363,9 +363,7 @@ def scan(options: ScanOptions, index_path: Path, log_path: Path, stop: Event, em
                     break
             database.commit()
             results = list(indexed.values())
-            for result in results:
-                emit("item", result)
-        LOGGER.info("Scan %s: %s files indexed", "stopped" if stop.is_set() else "completed", len(results))
+        LOGGER.info("Inference %s: %s files indexed", "stopped" if stop.is_set() else "completed", len(results))
         return results
     finally:
         LOGGER.removeHandler(log_handler)

@@ -485,36 +485,106 @@ class MainView(ttk.Frame):
         selection = self.tree.selection()
         self.original_rows = {"": []}
         for result in self.results:
-            predictions = [(index, prediction) for index, prediction in enumerate(result.predictions)
-                           if prediction["confidence"] >= self.move_confidence.get()]
-            counts = Counter(prediction["label"] for _, prediction in predictions)
-            row = str(result.source)
-            self.original_rows[""].append(row)
-            self.original_rows[row] = []
-            destination = self.moved_results[result.source].destination if result.source in self.moved_results else (
-                planned[result.source].destination if result.source in planned else None
-            )
-            self.result_paths[row] = self.moved_results[result.source].destination if result.source in self.moved_results else result.source
-            if not self.tree.exists(row):
-                self.tree.insert("", "end", iid=row, open=row in self.settings.values.expanded_rows)
-            self.tree.item(row, values=(
-                result.source.relative_to(self.options.source), "", counts.total(), "", destination if destination is not None else "",
-            ))
-            for child in self.tree.get_children(row):
-                del self.result_paths[child]
-            self.tree.delete(*self.tree.get_children(row))
-            for index, prediction in predictions:
-                child = f"{row}::match:{index}"
-                self.result_paths[child] = self.result_paths[row]
-                self.original_rows[row].append(child)
-                self.tree.insert(row, "end", iid=child, values=(
-                    "", prediction["label"], counts[prediction["label"]], prediction["confidence"], "",
-                ))
-        self.sort_table()
+            self.render_result(result, planned)
+        if self.sort_columns:
+            self.sort_table()
         self.tree.selection_set([row for row in selection if self.tree.exists(row)])
         percentage = len(self.move_plan) / self.total_media * 100 if self.total_media else 0
         self.media_stats.set(f"{self.total_media} files · {len(visible_labels)} labels · {len(self.move_plan)} to move ({percentage:.0f}%)")
         self.move_button.state(["!disabled"] if self.move_plan and not self.busy else ["disabled"])
+
+    def render_result(self, result, planned):
+        predictions = [(index, prediction) for index, prediction in enumerate(result.predictions)
+                       if prediction["confidence"] >= self.move_confidence.get()]
+        counts = Counter(prediction["label"] for _, prediction in predictions)
+        row = str(result.source)
+        self.original_rows[""].append(row)
+        self.original_rows[row] = []
+        destination = self.moved_results[result.source].destination if result.source in self.moved_results else (
+            planned[result.source].destination if result.source in planned else None
+        )
+        self.result_paths[row] = self.moved_results[result.source].destination if result.source in self.moved_results else result.source
+        if not self.tree.exists(row):
+            self.tree.insert("", "end", iid=row, open=row in self.settings.values.expanded_rows)
+        self.tree.item(row, values=(
+            result.source.relative_to(self.options.source), "", counts.total(), "", destination if destination is not None else "",
+        ))
+        for child in self.tree.get_children(row):
+            del self.result_paths[child]
+        self.tree.delete(*self.tree.get_children(row))
+        for index, prediction in predictions:
+            child = f"{row}::match:{index}"
+            self.result_paths[child] = self.result_paths[row]
+            self.original_rows[row].append(child)
+            self.tree.insert(row, "end", iid=child, values=(
+                "", prediction["label"], counts[prediction["label"]], prediction["confidence"], "",
+            ))
+
+    def start_preview(self, results):
+        self.results = results
+        visible_labels = sorted({prediction["label"] for result in self.results for prediction in result.predictions})
+        for label in visible_labels:
+            if label not in self.label_vars:
+                self.label_vars[label] = tk.BooleanVar(self, value=label in self.settings.values.selected_labels)
+                self.label_checks[label] = ttk.Checkbutton(
+                    self.label_frame, text=label, variable=self.label_vars[label], command=lambda label=label: self.select_label(label),
+                )
+        self.filter_labels()
+        selected = {label for label in visible_labels if self.label_vars[label].get()}
+        self.move_plan = plan_moves(
+            [result for result in self.results if result.source not in self.moved_results],
+            self.options.source, selected, self.move_confidence.get(), self.min_predictions.get(), self.max_predictions.get(),
+        ) if self.results else []
+        self.preview_planned = {result.source: result for result in self.move_plan}
+        self.preview_selection = self.tree.selection()
+        self.preview_visible_labels = visible_labels
+        self.preview_index = 0
+        self.original_rows = {"": []}
+        self.scan_speed.set("")
+        self.progress.stop()
+        self.progress.configure(mode="determinate", maximum=max(len(self.results), 1), value=0)
+        self.status.set(f"Preparing preview (0/{len(self.results)})")
+        if self.log_path is not None:
+            with self.log_path.open("a", encoding="utf-8") as stream:
+                stream.write(f"Preparing preview: 0/{len(self.results)} files\n")
+        self.refresh_console()
+        self.render_preview_chunk()
+
+    def render_preview_chunk(self):
+        end = min(self.preview_index + 100, len(self.results))
+        for result in self.results[self.preview_index:end]:
+            self.render_result(result, self.preview_planned)
+        self.preview_index = end
+        self.progress["value"] = end
+        self.status.set(f"Preparing preview ({end}/{len(self.results)})")
+        if self.log_path is not None:
+            with self.log_path.open("a", encoding="utf-8") as stream:
+                stream.write(f"Preparing preview: {end}/{len(self.results)} files\n")
+        self.refresh_console()
+        if end < len(self.results):
+            self.after(1, self.render_preview_chunk)
+            return
+        if self.sort_columns:
+            self.status.set(f"Sorting preview · {len(self.results)} files")
+            self.update_idletasks()
+            self.sort_table()
+        self.tree.selection_set([row for row in self.preview_selection if self.tree.exists(row)])
+        percentage = len(self.move_plan) / self.total_media * 100 if self.total_media else 0
+        self.media_stats.set(
+            f"{self.total_media} files · {len(self.preview_visible_labels)} labels · "
+            f"{len(self.move_plan)} to move ({percentage:.0f}%)"
+        )
+        self.set_busy(False)
+        self.progress.configure(mode="determinate", maximum=100, value=0 if self.stop.is_set() else 100)
+        state = "Stopped" if self.stop.is_set() else "Preview ready"
+        self.status.set(f"{state} · {len(self.results)} files")
+        if self.log_path is not None:
+            with self.log_path.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    f"Scan {'stopped' if self.stop.is_set() else 'completed'}: "
+                    f"{len(self.results)} files indexed; preview ready\n"
+                )
+        self.refresh_console()
 
     def filter_labels(self, *_):
         query = self.label_filter.get().casefold()
@@ -798,23 +868,23 @@ class MainView(ttk.Frame):
         if not self.future.done() or not self.events.empty():
             self.after(75, self.poll)
             return
-        self.set_busy(False)
         if self.operation == "scan":
             self.scan_speed.set("")
             self.progress.stop()
             error = self.future.exception()
             if error is not None:
+                self.set_busy(False)
                 with self.log_path.open("a", encoding="utf-8") as stream:
                     stream.write("\n" + "".join(traceback.format_exception(error)))
                 self.refresh_console()
                 self.status.set(f"Scan failed: {error}")
         result = self.future.result()
         self.refresh_console()
-        self.refresh_results()
         if self.operation == "scan":
-            self.progress.configure(mode="determinate", maximum=100, value=0 if self.stop.is_set() else 100)
-            self.status.set(f"{'Stopped' if self.stop.is_set() else 'Preview ready'} · {len(self.results)} files")
+            self.start_preview(result if result or not self.results else self.results)
         else:
+            self.set_busy(False)
+            self.refresh_results()
             self.status.set(f"{result} files moved" if result else "No files moved.")
 
     def close(self):

@@ -36,3 +36,45 @@ assert view.scan_speed.get() == ""
 view.close()
 '''
     subprocess.run([sys.executable, "-c", script, str(tmp_path)], check=True)
+
+
+def test_large_scan_reports_preview_progress(tmp_path):
+    script = '''
+import sys
+import tkinter as tk
+from concurrent.futures import Future
+from pathlib import Path
+from app.config import Settings
+from app.main import MainView
+from app.scanner import MediaResult, ScanOptions
+tmp_path = Path(sys.argv[1])
+root = tk.Tk()
+view = MainView(root, Settings(tmp_path / "settings", {}))
+view.pack(fill="both", expand=True)
+view.options = ScanOptions(tmp_path)
+view.operation = "scan"
+view.log_path = tmp_path / "scan.log"
+view.log_path.touch()
+view.set_busy(True)
+view.future = Future()
+results = [MediaResult(tmp_path / f"{index}.jpg", None, None, [], None, False, None) for index in range(250)]
+view.future.set_result(results)
+view.poll()
+assert view.busy
+assert view.status.get() == "Preparing preview (100/250)"
+assert view.progress["value"] == 100
+assert "Scan completed" not in view.log_path.read_text(encoding="utf-8")
+for _ in range(10):
+    root.update()
+    if not view.busy:
+        break
+assert not view.busy
+assert view.status.get() == "Preview ready · 250 files"
+assert view.progress["value"] == view.progress["maximum"] == 100
+log = view.log_path.read_text(encoding="utf-8")
+assert "Preparing preview: 100/250 files" in log
+assert "Preparing preview: 200/250 files" in log
+assert "Scan completed: 250 files indexed; preview ready" in log
+view.close()
+'''
+    subprocess.run([sys.executable, "-c", script, str(tmp_path)], check=True)

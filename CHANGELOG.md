@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-09-19
+
+### Changed
+
+- Prepare large scan previews in incremental chunks with visible progress and completion logging, keeping the interface responsive between batches.
+- Improve README presentation and documentation links.
+
 ## [0.8.2] - 2026-09-16
 
 ### Changed
@@ -172,7 +179,10 @@
 - Model presets from Hugging Face, GitHub, and Ultralytics Platform.
 - Repeatable PyInstaller and Inno Setup build scripts with an executable launch check.
 
-[Unreleased]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/electblake/YOLO-media-organizer/compare/v0.8.3...HEAD
+[0.8.3]: https://github.com/electblake/YOLO-media-organizer/compare/v0.8.2...v0.8.3
+[0.8.2]: https://github.com/electblake/YOLO-media-organizer/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.3...v0.8.1
 [0.7.3]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/electblake/YOLO-media-organizer/compare/v0.7.0...v0.7.1
