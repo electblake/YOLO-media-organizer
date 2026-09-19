@@ -55,6 +55,7 @@ view.options = ScanOptions(tmp_path)
 view.operation = "scan"
 view.log_path = tmp_path / "scan.log"
 view.log_path.touch()
+view.preview_chunk_size.set(100)
 view.set_busy(True)
 view.future = Future()
 results = [MediaResult(tmp_path / f"{index}.jpg", None, None, [], None, False, None) for index in range(250)]

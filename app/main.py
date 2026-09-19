@@ -60,6 +60,7 @@ class MainView(ttk.Frame):
         self.compile = tk.BooleanVar(self, value=values.compile)
         self.imgsz = tk.StringVar(self, value=values.imgsz)
         self.vid_stride = tk.IntVar(self, value=values.vid_stride)
+        self.preview_chunk_size = tk.IntVar(self, value=values.preview_chunk_size)
         self.stream_buffer = tk.BooleanVar(self, value=values.stream_buffer)
         self.stream = tk.BooleanVar(self, value=values.stream)
         self.save_crop = tk.BooleanVar(self, value=values.save_crop)
@@ -235,6 +236,12 @@ class MainView(ttk.Frame):
         save_txt = ttk.Checkbutton(save_options, text="Save text labels", variable=self.save_txt)
         save_txt.pack(side="left", padx=(8, 0))
         self.inputs.extend([save_crop, save_txt])
+        ttk.Label(controls, text="Preview chunk size").grid(row=5, column=0, sticky="w")
+        preview_chunk_size = ttk.Spinbox(
+            controls, from_=10, to=2147483647, increment=10, textvariable=self.preview_chunk_size, width=8,
+        )
+        preview_chunk_size.grid(row=5, column=1, sticky="w", padx=8, pady=4)
+        self.inputs.append(preview_chunk_size)
         # Descriptions adapted from https://docs.ultralytics.com/usage/cfg/#predict-settings.
         for name, widgets, description in (
             ("save", (save,), "Save annotated images and videos in the run directory."),
@@ -251,6 +258,8 @@ class MainView(ttk.Frame):
              "Does not affect folder/video-file scans."),
             ("stream", (stream,),
              "Return results incrementally to reduce memory use. Unchecked collects all results in memory before returning."),
+            ("preview_chunk_size", (preview_chunk_size, controls.grid_slaves(row=5, column=0)[0]),
+             "Number of scan results added to the preview between interface updates."),
         ):
             self.cfg_hints[name] = ToolTip(widgets, f"{name}: {description}")
         toggles = ttk.Frame(form)
@@ -408,7 +417,7 @@ class MainView(ttk.Frame):
         values = {name: getattr(self, name).get() for name in (
             "source", "model", "crop_model", "scan_confidence", "move_confidence", "min_predictions",
             "max_predictions", "device", "videos",
-            "batch", "precision", "compile", "imgsz", "vid_stride", "stream_buffer", "stream",
+            "batch", "precision", "compile", "imgsz", "vid_stride", "preview_chunk_size", "stream_buffer", "stream",
             "save_results", "save_crop", "save_txt",
             "quarantine_video_failures", "quarantine_folder",
         )}
@@ -430,7 +439,7 @@ class MainView(ttk.Frame):
         values = self.settings.values
         for name in ("source", "model", "crop_model", "scan_confidence", "move_confidence", "min_predictions",
                      "max_predictions", "device", "videos",
-                     "batch", "precision", "compile", "imgsz", "vid_stride", "stream_buffer", "stream",
+                     "batch", "precision", "compile", "imgsz", "vid_stride", "preview_chunk_size", "stream_buffer", "stream",
                      "save_results", "save_crop", "save_txt",
                      "quarantine_video_failures", "quarantine_folder"):
             getattr(self, name).set(getattr(values, name))
@@ -551,7 +560,7 @@ class MainView(ttk.Frame):
         self.render_preview_chunk()
 
     def render_preview_chunk(self):
-        end = min(self.preview_index + 100, len(self.results))
+        end = min(self.preview_index + self.preview_chunk_size.get(), len(self.results))
         for result in self.results[self.preview_index:end]:
             self.render_result(result, self.preview_planned)
         self.preview_index = end

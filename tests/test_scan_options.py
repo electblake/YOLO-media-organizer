@@ -17,6 +17,7 @@ view.pack(fill="both", expand=True)
 root.update()
 assert view.stream_buffer.get() is True
 assert view.stream.get() is True
+assert view.preview_chunk_size.get() == 1000
 assert not view.save_crop.get() and not view.save_txt.get()
 assert not view.save_results.get()
 assert view.open_run_button.instate(["disabled"])
@@ -45,11 +46,25 @@ assert view.stream_buffer.get() is True
 assert (view.batch.get(), view.precision.get(), view.compile.get(), view.imgsz.get(), view.vid_stride.get()) == (
     1, "Default", False, "Default", 1,
 )
+assert view.preview_chunk_size.get() == 1000
 root.update()
-for variable in (view.batch, view.precision, view.compile, view.imgsz, view.vid_stride, view.stream_buffer, view.stream):
+for variable in (view.batch, view.precision, view.compile, view.imgsz, view.vid_stride, view.preview_chunk_size, view.stream_buffer, view.stream):
     widget = next(w for w in view.inputs if str(w.cget("variable" if w.winfo_class() == "TCheckbutton" else "textvariable")) == str(variable))
     assert widget.winfo_ismapped()
     assert widget.winfo_rooty() < view.label_canvas.master.winfo_rooty()
+preview_chunk_control = next(w for w in view.inputs if str(w.cget("textvariable")) == str(view.preview_chunk_size))
+assert float(preview_chunk_control.cget("increment")) == 10
+preview_chunk_control.focus_set()
+preview_chunk_control.event_generate("<Up>")
+root.update()
+assert view.preview_chunk_size.get() == 1010
+preview_chunk_control.event_generate("<Down>")
+root.update()
+assert view.preview_chunk_size.get() == 1000
+for geometry in ("920x620", "1600x1000"):
+    root.geometry(geometry)
+    root.update()
+    assert preview_chunk_control.winfo_ismapped()
 view.close()
 """
     subprocess.run([sys.executable, "-c", script, str(tmp_path)], check=True)

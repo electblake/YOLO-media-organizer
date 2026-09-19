@@ -26,6 +26,7 @@ class AppState(BaseModel):
     compile: bool = False
     imgsz: str = "Default"
     vid_stride: int = 1
+    preview_chunk_size: int = 1000
     stream_buffer: bool = True
     stream: bool = True
     save_crop: bool = False

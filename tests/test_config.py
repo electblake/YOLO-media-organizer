@@ -122,7 +122,10 @@ view.options = ScanOptions(directory)
 result = MediaResult(directory / "image.png", None, None, [{"label": "dynamic", "confidence": .9}], None, False, None)
 view.results = [result]
 view.refresh_results()
-scan_values = {"batch": 8, "precision": "FP16", "compile": True, "imgsz": "320", "vid_stride": 3, "stream_buffer": False, "stream": False}
+scan_values = {
+    "batch": 8, "precision": "FP16", "compile": True, "imgsz": "320", "vid_stride": 3,
+    "preview_chunk_size": 250, "stream_buffer": False, "stream": False,
+}
 scan_values.update(save_results=True, save_crop=True, save_txt=True)
 for name, value in scan_values.items():
     assert getattr(view, name).get() == getattr(AppState(), name)
